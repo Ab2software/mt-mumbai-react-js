@@ -4736,7 +4736,7 @@ const AdminDashboard = ({ setAdminAuth }) => {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <h4 style={{ margin: 0, fontSize: '1.15rem', color: '#495057', textTransform: 'uppercase', fontWeight: '700' }}>
-                  Fund Request Management
+                  Fund Request & Deposit Management
                 </h4>
                 <div style={{ fontSize: '0.8rem', color: '#74788d' }}>
                   Wallet Management / <span style={{ color: '#556ee6' }}>Fund Request</span>
@@ -4747,7 +4747,7 @@ const AdminDashboard = ({ setAdminAuth }) => {
               <div style={{ backgroundColor: '#ffffff', borderRadius: '8px', padding: '20px', border: '1px solid #eff2f7', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: '220px', maxWidth: '320px' }}>
-                    <label style={{ fontSize: '0.82rem', fontWeight: '600', color: '#495057', display: 'block', marginBottom: '6px' }}>Date</label>
+                    <label style={{ fontSize: '0.82rem', fontWeight: '600', color: '#495057', display: 'block', marginBottom: '6px' }}>Filter Date (Optional)</label>
                     <input
                       type="date"
                       value={fundReqDate}
@@ -4759,103 +4759,104 @@ const AdminDashboard = ({ setAdminAuth }) => {
                     onClick={fetchFundRequests}
                     style={{ backgroundColor: '#34c38f', color: '#fff', border: 'none', padding: '9px 22px', borderRadius: '4px', fontSize: '0.88rem', fontWeight: '600', cursor: 'pointer' }}
                   >
-                    Submit
+                    Filter Date
+                  </button>
+                  <button
+                    onClick={() => { setFundReqDate(''); fetchFundRequests(); }}
+                    style={{ backgroundColor: '#6c757d', color: '#fff', border: 'none', padding: '9px 16px', borderRadius: '4px', fontSize: '0.88rem', fontWeight: '600', cursor: 'pointer' }}
+                  >
+                    Show All
                   </button>
                 </div>
               </div>
 
-              {/* Data Table Card */}
-              <div style={{ backgroundColor: '#ffffff', borderRadius: '8px', padding: '24px', border: '1px solid #eff2f7', boxShadow: '0 0.75rem 1.5rem rgba(18,38,63,.03)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
-                  <h5 style={{ margin: 0, fontSize: '1.05rem', color: '#495057', fontWeight: '600' }}>Fund Request List</h5>
+              {/* Data Table with Search & Server/Client Pagination */}
+              <DataTable
+                headerTitle="Fund Request List"
+                actions={(
                   <span style={{ backgroundColor: '#556ee6', color: '#ffffff', padding: '6px 14px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: '600' }}>
                     Total Amount is ₹ {fundReqTotal}
                   </span>
-                </div>
-
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                    <thead>
-                      <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #eff2f7' }}>
-                        <th style={{ padding: '10px 12px', textAlign: 'left', color: '#495057' }}>S.No.</th>
-                        <th style={{ padding: '10px 12px', textAlign: 'left', color: '#495057' }}>User Name</th>
-                        <th style={{ padding: '10px 12px', textAlign: 'left', color: '#495057' }}>Phone Number</th>
-                        <th style={{ padding: '10px 12px', textAlign: 'left', color: '#495057' }}>Amount</th>
-                        <th style={{ padding: '10px 12px', textAlign: 'left', color: '#495057' }}>Points</th>
-                        <th style={{ padding: '10px 12px', textAlign: 'left', color: '#495057' }}>Receipt Image</th>
-                        <th style={{ padding: '10px 12px', textAlign: 'left', color: '#495057' }}>Date</th>
-                        <th style={{ padding: '10px 12px', textAlign: 'center', color: '#495057' }}>Status</th>
-                        <th style={{ padding: '10px 12px', textAlign: 'center', color: '#495057' }}>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {fundReqList.map((item, idx) => (
-                        <tr key={item.id} style={{ borderBottom: '1px solid #eff2f7' }}>
-                          <td style={{ padding: '10px 12px' }}>{idx + 1}</td>
-                          <td style={{ padding: '10px 12px' }}>
-                            <strong>{item.user_name || item.username}</strong>{' '}
-                            <button
-                              onClick={() => setSelectedUserModal({ name: item.user_name || item.username, phone: item.username, wallet: item.current_wallet || 0 })}
-                              title="View User"
-                              style={{ border: 'none', background: 'transparent', color: '#556ee6', cursor: 'pointer', fontSize: '0.85rem' }}
-                            >
-                              🔗
-                            </button>
-                          </td>
-                          <td style={{ padding: '10px 12px' }}>{item.username}</td>
-                          <td style={{ padding: '10px 12px', fontWeight: 'bold', color: '#28a745' }}>₹ {item.amount}</td>
-                          <td style={{ padding: '10px 12px' }}>{item.points || item.amount}</td>
-                          <td style={{ padding: '10px 12px' }}>
-                            {item.receipe_image ? (
-                              <a href={`/uploads/${item.receipe_image}`} target="_blank" rel="noreferrer" style={{ color: '#556ee6', textDecoration: 'underline' }}>
-                                View Receipt
-                              </a>
-                            ) : '-'}
-                          </td>
-                          <td style={{ padding: '10px 12px' }}>{item.date}</td>
-                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                            {(item.status === '1' || item.status === 1) && (
-                              <span style={{ backgroundColor: '#def7ec', color: '#03543f', padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>Accepted</span>
-                            )}
-                            {(item.status === '0' || item.status === 0) && (
-                              <span style={{ backgroundColor: '#e1effe', color: '#1e429f', padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>Pending</span>
-                            )}
-                            {(item.status === '-1' || item.status === -1) && (
-                              <span style={{ backgroundColor: '#fde8e8', color: '#9b1c1c', padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>Rejected</span>
-                            )}
-                          </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                            {(item.status === '0' || item.status === 0) ? (
-                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                                <button
-                                  onClick={() => handleFundRequestAction(item.id, 'approve')}
-                                  style={{ backgroundColor: '#28a745', color: '#fff', border: 'none', padding: '4px 10px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: '600' }}
-                                >
-                                  Approve
-                                </button>
-                                <button
-                                  onClick={() => handleFundRequestAction(item.id, 'reject')}
-                                  style={{ backgroundColor: '#dc3545', color: '#fff', border: 'none', padding: '4px 10px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: '600' }}
-                                >
-                                  Reject
-                                </button>
-                              </div>
-                            ) : (
-                              <span style={{ fontSize: '0.78rem', color: '#74788d' }}>Resolved</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                      {fundReqList.length === 0 && !fundReqLoading && (
-                        <tr><td colSpan="9" style={{ padding: '24px', textAlign: 'center', color: '#74788d' }}>No Report Found</td></tr>
-                      )}
-                      {fundReqLoading && (
-                        <tr><td colSpan="9" style={{ padding: '24px', textAlign: 'center', color: '#556ee6' }}>Loading Fund Requests...</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                )}
+                columns={[
+                  { title: 'S.No.', key: 'id', render: (_, idx) => idx },
+                  {
+                    title: 'User Name',
+                    key: 'username',
+                    render: (item) => (
+                      <div>
+                        <strong>{item.user_name || item.username}</strong>{' '}
+                        <button
+                          onClick={() => setSelectedUserModal({ name: item.user_name || item.username, phone: item.username, wallet: item.current_wallet || 0 })}
+                          title="View User"
+                          style={{ border: 'none', background: 'transparent', color: '#556ee6', cursor: 'pointer', fontSize: '0.85rem' }}
+                        >
+                          🔗
+                        </button>
+                      </div>
+                    )
+                  },
+                  { title: 'Phone Number', key: 'username', render: (item) => item.username },
+                  { title: 'Amount', key: 'amount', render: (item) => <strong style={{ color: '#28a745' }}>₹ {item.amount}</strong> },
+                  { title: 'Points', key: 'points', render: (item) => item.points || item.amount },
+                  {
+                    title: 'Receipt Image',
+                    key: 'receipe_image',
+                    render: (item) => item.receipe_image ? (
+                      <a href={`/uploads/${item.receipe_image}`} target="_blank" rel="noreferrer" style={{ color: '#556ee6', textDecoration: 'underline' }}>
+                        View Receipt
+                      </a>
+                    ) : '-'
+                  },
+                  { title: 'Date', key: 'date', render: (item) => item.date || item.created_at || '—' },
+                  {
+                    title: 'Status',
+                    key: 'status',
+                    style: { textAlign: 'center' },
+                    render: (item) => (
+                      <>
+                        {(item.status === '1' || item.status === 1) && (
+                          <span style={{ backgroundColor: '#def7ec', color: '#03543f', padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>Accepted</span>
+                        )}
+                        {(item.status === '0' || item.status === 0) && (
+                          <span style={{ backgroundColor: '#e1effe', color: '#1e429f', padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>Pending</span>
+                        )}
+                        {(item.status === '-1' || item.status === -1) && (
+                          <span style={{ backgroundColor: '#fde8e8', color: '#9b1c1c', padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>Rejected</span>
+                        )}
+                      </>
+                    )
+                  },
+                  {
+                    title: 'Action',
+                    key: 'action',
+                    style: { textAlign: 'center' },
+                    render: (item) => (
+                      (item.status === '0' || item.status === 0) ? (
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                          <button
+                            onClick={() => handleFundRequestAction(item.id, 'approve')}
+                            style={{ backgroundColor: '#28a745', color: '#fff', border: 'none', padding: '4px 10px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: '600' }}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleFundRequestAction(item.id, 'reject')}
+                            style={{ backgroundColor: '#dc3545', color: '#fff', border: 'none', padding: '4px 10px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: '600' }}
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: '0.78rem', color: '#74788d' }}>Resolved</span>
+                      )
+                    )
+                  }
+                ]}
+                data={fundReqList}
+                loading={fundReqLoading}
+                searchPlaceholder="Search by Name, Phone, Amount..."
+              />
             </div>
           )}
 
