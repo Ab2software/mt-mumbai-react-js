@@ -5,9 +5,13 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token && !config.headers['Authorization'] && !config.headers['authorization']) {
-    config.headers['Authorization'] = `Bearer ${token}`;
+  const isAdminReq = config.url && config.url.includes('/admin');
+  const adminToken = localStorage.getItem('admin_token');
+  const userToken = localStorage.getItem('token');
+  const authToken = isAdminReq ? (adminToken || userToken) : (userToken || adminToken);
+
+  if (authToken && !config.headers['Authorization'] && !config.headers['authorization']) {
+    config.headers['Authorization'] = `Bearer ${authToken}`;
   }
   return config;
 }, (error) => {
