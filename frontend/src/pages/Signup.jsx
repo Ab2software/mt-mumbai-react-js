@@ -164,18 +164,6 @@ const Signup = () => {
             </p>
           </div>
 
-          {error && (
-            <div className="badge badge-danger" style={{ display: 'block', padding: '12px 14px', marginBottom: '18px', textAlign: 'center', borderRadius: '10px', fontSize: '0.88rem' }}>
-              {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="badge badge-success" style={{ display: 'block', padding: '12px 14px', marginBottom: '18px', textAlign: 'center', borderRadius: '10px', fontSize: '0.88rem' }}>
-              {success}
-            </div>
-          )}
-
           <form onSubmit={handleSignup}>
             <div className="form-group">
               <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -315,6 +303,19 @@ const Signup = () => {
               </div>
             </div>
 
+            {/* Error & Success Messages Displayed Directly Above Action Button */}
+            {error && (
+              <div className="badge badge-danger" style={{ display: 'block', padding: '12px 14px', marginBottom: '16px', textAlign: 'center', borderRadius: '10px', fontSize: '0.88rem', fontWeight: '600' }}>
+                {error}
+              </div>
+            )}
+
+            {success && (
+              <div className="badge badge-success" style={{ display: 'block', padding: '12px 14px', marginBottom: '16px', textAlign: 'center', borderRadius: '10px', fontSize: '0.88rem', fontWeight: '600' }}>
+                {success}
+              </div>
+            )}
+
             <button 
               type="submit" 
               className={`btn btn-gold btn-theme-submit-${themeColor}`} 
@@ -353,7 +354,6 @@ const Signup = () => {
           </div>
         </div>
       </div>
-
     </div>
   );
 };

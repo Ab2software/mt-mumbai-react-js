@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Phone, Lock, Eye, EyeOff, MessageCircle, Sparkles, ShieldCheck } from 'lucide-react';
+import { Phone, Lock, Eye, EyeOff, MessageCircle, ShieldCheck } from 'lucide-react';
 import api from '../utils/api';
 
 const Login = ({ setAuth }) => {
@@ -141,12 +141,6 @@ const Login = ({ setAuth }) => {
             </p>
           </div>
 
-          {error && (
-            <div className="badge badge-danger" style={{ display: 'block', padding: '12px 14px', marginBottom: '20px', textAlign: 'center', borderRadius: '10px', fontSize: '0.88rem' }}>
-              {error}
-            </div>
-          )}
-
           <form onSubmit={handleLogin}>
             <div className="form-group">
               <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -167,7 +161,7 @@ const Login = ({ setAuth }) => {
               </div>
             </div>
 
-            <div className="form-group" style={{ marginBottom: '24px' }}>
+            <div className="form-group" style={{ marginBottom: '20px' }}>
               <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Lock size={14} /> Password
               </label>
@@ -193,6 +187,13 @@ const Login = ({ setAuth }) => {
                 </button>
               </div>
             </div>
+
+            {/* Error Message Displayed Directly Above Action Button */}
+            {error && (
+              <div className="badge badge-danger" style={{ display: 'block', padding: '12px 14px', marginBottom: '18px', textAlign: 'center', borderRadius: '10px', fontSize: '0.88rem', fontWeight: '600' }}>
+                {error}
+              </div>
+            )}
 
             <button 
               type="submit" 
@@ -232,7 +233,6 @@ const Login = ({ setAuth }) => {
           </div>
         </div>
       </div>
-
     </div>
   );
 };
