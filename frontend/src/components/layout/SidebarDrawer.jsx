@@ -14,7 +14,9 @@ import {
   LogOut, 
   X,
   Palette,
-  ShieldCheck
+  ShieldCheck,
+  PlayCircle,
+  HelpCircle
 } from 'lucide-react';
 
 const SidebarDrawer = ({ 
@@ -244,6 +246,16 @@ const SidebarDrawer = ({
             <li onClick={() => handleNavClick('/game-rate')} style={menuItemStyle}>
               <Percent size={18} style={{ color: 'var(--color-gold)' }} />
               <span>Game Rates</span>
+            </li>
+
+            <li onClick={() => handleNavClick('/how-to-play')} style={menuItemStyle}>
+              <PlayCircle size={18} style={{ color: 'var(--color-gold)' }} />
+              <span>How To Play</span>
+            </li>
+
+            <li onClick={() => handleNavClick('/support')} style={menuItemStyle}>
+              <HelpCircle size={18} style={{ color: 'var(--color-gold)' }} />
+              <span>Customer Support</span>
             </li>
           </ul>
         </div>

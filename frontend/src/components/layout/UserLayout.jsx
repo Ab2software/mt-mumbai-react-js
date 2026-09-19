@@ -30,8 +30,15 @@ const UserLayout = ({ children, setAuth }) => {
       ]);
 
       const wallet = walletRes?.data?.data?.wallet || '0';
-      const prof = profileRes?.data?.data || {};
+      const prof = profileRes?.data?.data || walletRes?.data?.data || {};
       const appInfo = appRes?.data?.data || {};
+
+      // Check if user account is inactive
+      if (prof.status === '0' || prof.status === 0 || walletRes?.data?.is_inactive || profileRes?.data?.is_inactive) {
+        handleLogout();
+        navigate('/login?error=inactive', { replace: true });
+        return;
+      }
 
       const currentMpinStatus = appInfo.mpin_status || walletRes?.data?.data?.mpin_status || '1';
       setMpinStatus(currentMpinStatus);
@@ -41,7 +48,10 @@ const UserLayout = ({ children, setAuth }) => {
         phone_number: prof.phone_number || prof.phone || localStorage.getItem('phone') || '',
         phone: prof.phone || localStorage.getItem('phone') || '',
         email: prof.email || '',
-        wallet: wallet
+        wallet: wallet,
+        status: String(prof.status ?? '1'),
+        betting_status: String(prof.betting_status ?? walletRes?.data?.data?.betting_status ?? '1'),
+        transfer_status: String(prof.transfer_status ?? walletRes?.data?.data?.transfer_status ?? '1')
       });
 
       if (appInfo.wp_mobile || appInfo.mobile) {
@@ -62,10 +72,23 @@ const UserLayout = ({ children, setAuth }) => {
     const onThemeChange = () => {
       setThemeColor(localStorage.getItem('auth_theme_color') || 'gold');
     };
+
+    const handleScreenOff = () => {
+      if (document.visibilityState === 'hidden') {
+        sessionStorage.removeItem('mpin_unlocked');
+        setIsLocked(true);
+      }
+    };
+
     window.addEventListener('storage', onThemeChange);
+    document.addEventListener('visibilitychange', handleScreenOff);
+    window.addEventListener('pagehide', handleScreenOff);
+
     return () => {
       clearInterval(interval);
       window.removeEventListener('storage', onThemeChange);
+      document.removeEventListener('visibilitychange', handleScreenOff);
+      window.removeEventListener('pagehide', handleScreenOff);
     };
   }, []);
 

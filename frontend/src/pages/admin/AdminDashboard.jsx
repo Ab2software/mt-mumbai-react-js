@@ -11,6 +11,39 @@ import {
   ALL_PANAS_220
 } from '../../utils/gameNumbersData';
 
+const REFERRAL_TYPES_LIST = [
+  {
+    id: 'signup',
+    title: '🎉 Fixed One-Time Bonus on Signup',
+    badge: 'Registration Bonus',
+    description: 'Referrer receives a fixed bonus amount in their wallet immediately when a new user registers using their referral phone number.'
+  },
+  {
+    id: 'first_deposit',
+    title: '💳 First Deposit Commission (%)',
+    badge: '1st Deposit',
+    description: 'Referrer receives a percentage commission on the FIRST approved deposit made by the referred user.'
+  },
+  {
+    id: 'every_deposit',
+    title: '🔄 Every Deposit Commission (%)',
+    badge: 'All Deposits',
+    description: 'Referrer receives a percentage commission on EVERY approved deposit made by the referred user.'
+  },
+  {
+    id: 'first_bet',
+    title: '🎯 First Bet / Bid Commission (%)',
+    badge: '1st Game Bid',
+    description: 'Referrer receives a percentage commission when the referred user places their VERY FIRST game bid.'
+  },
+  {
+    id: 'every_bet',
+    title: '🎰 Every Bet / Bid Commission (%)',
+    badge: 'All Game Bids',
+    description: 'Referrer receives a percentage commission on EVERY game bid placed by the referred user.'
+  }
+];
+
 const AdminDashboard = ({ setAdminAuth }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -221,6 +254,13 @@ const AdminDashboard = ({ setAdminAuth }) => {
   const [declareError, setDeclareError] = useState('');
   const [declareSuccess, setDeclareSuccess] = useState('');
 
+  // Declared Results List & Winner Preview Modal States
+  const [declaredResultsList, setDeclaredResultsList] = useState([]);
+  const [declaredResultsLoading, setDeclaredResultsLoading] = useState(false);
+  const [showWinnerPreviewModal, setShowWinnerPreviewModal] = useState(false);
+  const [previewWinnersData, setPreviewWinnersData] = useState({ totalWinners: 0, totalPayout: 0, winners: [] });
+  const [previewLoading, setPreviewLoading] = useState(false);
+
   // Searchable Pana Dropdown & Auto Digit Calculation Helpers
   const [showOpenPanaDropdown, setShowOpenPanaDropdown] = useState(false);
   const [showClosePanaDropdown, setShowClosePanaDropdown] = useState(false);
@@ -346,6 +386,9 @@ const AdminDashboard = ({ setAdminAuth }) => {
   const [addFundLoading, setAddFundLoading] = useState(false);
   const [addFundMsg, setAddFundMsg] = useState('');
   const [addFundError, setAddFundError] = useState('');
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userDetailSearchQuery, setUserDetailSearchQuery] = useState('');
+  const [showAddFundUserDropdown, setShowAddFundUserDropdown] = useState(false);
 
   // 4. Bid Revert
   const [bidRevertDate, setBidRevertDate] = useState(new Date().toISOString().slice(0, 10));
@@ -881,6 +924,8 @@ const AdminDashboard = ({ setAdminAuth }) => {
           max_bid_amt: settingsData.max_bid_amt,
           Dragon_bonus: settingsData.Dragon_bonus,
           referral_commission: settingsData.referral_commission,
+          referral_status: settingsData.referral_status !== undefined ? String(settingsData.referral_status) : '1',
+          referral_type: settingsData.referral_type || 'signup',
           min_wallet_amount: settingsData.min_wallet_amount,
           withdraw_open_time: settingsData.withdraw_open_time,
           withdraw_close_time: settingsData.withdraw_close_time,
@@ -1263,6 +1308,8 @@ const AdminDashboard = ({ setAdminAuth }) => {
       if (res.data.success === '1') {
         setAddFundMsg(res.data.msg || 'Points added to user wallet successfully!');
         setAddFundAmount('');
+        setAddFundUserPhone('');
+        setUserSearchQuery('');
         fetchAdminCoins();
         fetchUsers();
       } else {
@@ -1386,6 +1433,8 @@ const AdminDashboard = ({ setAdminAuth }) => {
         setBidRevertGame(games[0].games_name);
       }
       fetchBidRevertList();
+    } else if (activeTab === 'declare_result') {
+      fetchDeclaredResults(declareDate);
     } else if (activeTab === 'report_bid_history') {
       fetchReportBidHistory();
     } else if (activeTab === 'report_sell') {
@@ -1518,6 +1567,7 @@ const AdminDashboard = ({ setAdminAuth }) => {
         setDeclareOpenResult('');
         setDeclareClosePana('');
         setDeclareCloseResult('');
+        fetchDeclaredResults(declareDate);
       } else {
         setDeclareError(res.data.msg || 'Declaration failed');
       }
@@ -1526,6 +1576,105 @@ const AdminDashboard = ({ setAdminAuth }) => {
       setDeclareError('Error declaring result. Please check open result is declared before close.');
     } finally {
       setDeclareLoading(false);
+    }
+  };
+
+  const fetchDeclaredResults = async (dateVal = declareDate) => {
+    setDeclaredResultsLoading(true);
+    try {
+      const res = await api.get(`/admin/declare-result/list?date=${dateVal}`, getHeaders());
+      if (res.data.success === '1') {
+        setDeclaredResultsList(res.data.data || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDeclaredResultsLoading(false);
+    }
+  };
+
+  const handleDeleteDeclaredResult = async (game_name, date, session = 'all') => {
+    const sessText = session === 'open' ? 'Open Result' : session === 'close' ? 'Close Result' : 'Full Result';
+    const confirmMsg = `Are you sure you want to delete ${sessText} for "${game_name}" on ${date}? Any winning payouts credited to user wallets will be REVERTED.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const res = await api.post('/admin/declare-result/delete', { game_name, date, session }, getHeaders());
+      if (res.data.success === '1') {
+        alert(res.data.msg);
+        fetchDeclaredResults(declareDate);
+        fetchAdminCoins();
+      } else {
+        alert(res.data.msg || 'Failed to delete result');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error deleting result');
+    }
+  };
+
+  const handlePreviewWinners = async () => {
+    const targetGame = declareSelectedGame || (games[0]?.games_name || '');
+    if (!targetGame) {
+      alert('Please select a game first');
+      return;
+    }
+
+    if (declareSession === 'open') {
+      if (!/^\d{3}$/.test(declareOpenPana) || !/^\d$/.test(declareOpenResult)) {
+        alert('Open Pana must be 3 digits and Open Digit must be a single digit');
+        return;
+      }
+    } else {
+      if (!/^\d{3}$/.test(declareClosePana) || !/^\d$/.test(declareCloseResult)) {
+        alert('Close Pana must be 3 digits and Close Digit must be a single digit');
+        return;
+      }
+    }
+
+    setPreviewLoading(true);
+    try {
+      const res = await api.post('/admin/declare-result/preview', {
+        game_name: targetGame,
+        date: declareDate,
+        session: declareSession,
+        open_pana: declareOpenPana,
+        open_result: declareOpenResult,
+        close_pana: declareClosePana,
+        close_result: declareCloseResult
+      }, getHeaders());
+
+      if (res.data.success === '1') {
+        setPreviewWinnersData({
+          totalWinners: res.data.totalWinners || 0,
+          totalPayout: res.data.totalPayout || 0,
+          winners: res.data.winners || []
+        });
+        setShowWinnerPreviewModal(true);
+      } else {
+        alert(res.data.msg || 'Failed to preview winners');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error previewing winners');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleDeleteBidInPreview = async (bidId) => {
+    if (!window.confirm('Are you sure you want to delete this bid?')) return;
+    try {
+      const res = await api.post('/admin/reports/bid-history/delete', { id: bidId }, getHeaders());
+      if (res.data.success === '1') {
+        alert('Bid deleted successfully');
+        handlePreviewWinners();
+      } else {
+        alert(res.data.msg || 'Failed to delete bid');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error deleting bid');
     }
   };
 
@@ -2928,6 +3077,55 @@ const AdminDashboard = ({ setAdminAuth }) => {
                           {walletAdjSubmitting ? 'Processing...' : walletAdjType === 'add' ? 'Add Amount To Wallet' : 'Deduct Amount From Wallet'}
                         </button>
                       </form>
+                    </div>
+                  </div>
+
+                  {/* USER BANK ACCOUNT & PAYMENT DETAILS CARD */}
+                  <div style={{ backgroundColor: '#ffffff', borderRadius: '8px', padding: '20px', border: '1px solid #eff2f7', boxShadow: '0 0.75rem 1.5rem rgba(18,38,63,.03)', marginBottom: '24px' }}>
+                    <h5 style={{ margin: '0 0 16px 0', fontSize: '1rem', color: '#495057', fontWeight: '700', borderBottom: '1px solid #eff2f7', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      🏦 User Bank Account & UPI Payment Details
+                    </h5>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', fontSize: '0.86rem' }}>
+                      <div style={{ backgroundColor: '#f8f9fa', padding: '12px 14px', borderRadius: '6px', border: '1px solid #e9ecef' }}>
+                        <span style={{ color: '#74788d', fontSize: '0.75rem', display: 'block', marginBottom: '2px', fontWeight: '600' }}>Bank Name</span>
+                        <strong style={{ color: '#2a3042', fontSize: '0.92rem' }}>{userDetailsData.user.bank_name || 'Not Added'}</strong>
+                      </div>
+
+                      <div style={{ backgroundColor: '#f8f9fa', padding: '12px 14px', borderRadius: '6px', border: '1px solid #e9ecef' }}>
+                        <span style={{ color: '#74788d', fontSize: '0.75rem', display: 'block', marginBottom: '2px', fontWeight: '600' }}>Account Holder Name</span>
+                        <strong style={{ color: '#2a3042', fontSize: '0.92rem' }}>{userDetailsData.user.account_holder_name || 'Not Added'}</strong>
+                      </div>
+
+                      <div style={{ backgroundColor: '#f8f9fa', padding: '12px 14px', borderRadius: '6px', border: '1px solid #e9ecef' }}>
+                        <span style={{ color: '#74788d', fontSize: '0.75rem', display: 'block', marginBottom: '2px', fontWeight: '600' }}>Account Number</span>
+                        <strong style={{ color: '#556ee6', fontSize: '0.95rem', fontFamily: 'monospace' }}>{userDetailsData.user.account_number || 'Not Added'}</strong>
+                      </div>
+
+                      <div style={{ backgroundColor: '#f8f9fa', padding: '12px 14px', borderRadius: '6px', border: '1px solid #e9ecef' }}>
+                        <span style={{ color: '#74788d', fontSize: '0.75rem', display: 'block', marginBottom: '2px', fontWeight: '600' }}>IFSC Code</span>
+                        <strong style={{ color: '#2a3042', fontSize: '0.92rem', fontFamily: 'monospace' }}>{userDetailsData.user.ifsc_code || 'Not Added'}</strong>
+                      </div>
+
+                      <div style={{ backgroundColor: '#f8f9fa', padding: '12px 14px', borderRadius: '6px', border: '1px solid #e9ecef' }}>
+                        <span style={{ color: '#74788d', fontSize: '0.75rem', display: 'block', marginBottom: '2px', fontWeight: '600' }}>Branch Name</span>
+                        <strong style={{ color: '#2a3042', fontSize: '0.92rem' }}>{userDetailsData.user.branch_name || 'Not Added'}</strong>
+                      </div>
+
+                      <div style={{ backgroundColor: '#f8f9fa', padding: '12px 14px', borderRadius: '6px', border: '1px solid #e9ecef' }}>
+                        <span style={{ color: '#74788d', fontSize: '0.75rem', display: 'block', marginBottom: '2px', fontWeight: '600' }}>Paytm Number</span>
+                        <strong style={{ color: '#2a3042', fontSize: '0.92rem' }}>{userDetailsData.user.paytm || 'Not Added'}</strong>
+                      </div>
+
+                      <div style={{ backgroundColor: '#f8f9fa', padding: '12px 14px', borderRadius: '6px', border: '1px solid #e9ecef' }}>
+                        <span style={{ color: '#74788d', fontSize: '0.75rem', display: 'block', marginBottom: '2px', fontWeight: '600' }}>PhonePe Number</span>
+                        <strong style={{ color: '#2a3042', fontSize: '0.92rem' }}>{userDetailsData.user.phonepay || 'Not Added'}</strong>
+                      </div>
+
+                      <div style={{ backgroundColor: '#f8f9fa', padding: '12px 14px', borderRadius: '6px', border: '1px solid #e9ecef' }}>
+                        <span style={{ color: '#74788d', fontSize: '0.75rem', display: 'block', marginBottom: '2px', fontWeight: '600' }}>Google Pay Number</span>
+                        <strong style={{ color: '#2a3042', fontSize: '0.92rem' }}>{userDetailsData.user.googlepay || 'Not Added'}</strong>
+                      </div>
                     </div>
                   </div>
 
@@ -4346,18 +4544,6 @@ const AdminDashboard = ({ setAdminAuth }) => {
                       />
                     </div>
                     <div>
-                      <label style={{ fontSize: '0.82rem', fontWeight: '600', color: '#495057', display: 'block', marginBottom: '6px' }}>Referral Commission (%)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        value={settingsData.referral_commission ?? ''}
-                        onChange={(e) => setSettingsData({ ...settingsData, referral_commission: e.target.value })}
-                        style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '0.88rem' }}
-                      />
-                    </div>
-                    <div>
                       <label style={{ fontSize: '0.82rem', fontWeight: '600', color: '#495057', display: 'block', marginBottom: '6px' }}>Minimum Wallet Amount</label>
                       <input
                         type="number"
@@ -4375,6 +4561,123 @@ const AdminDashboard = ({ setAdminAuth }) => {
                         onChange={(e) => setSettingsData({ ...settingsData, alert_message: e.target.value })}
                         style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '0.88rem' }}
                       />
+                    </div>
+                  </div>
+
+                  {/* DEDICATED REFERRAL COMMISSION SETTINGS CARD */}
+                  <div style={{
+                    backgroundColor: '#ffffff',
+                    borderRadius: '8px',
+                    padding: '24px',
+                    border: '1px solid #e2e8f0',
+                    boxShadow: '0 0.75rem 1.5rem rgba(18,38,63,.03)',
+                    marginBottom: '24px',
+                    borderLeft: (settingsData.referral_status === '0' || settingsData.referral_status === 0) ? '4px solid #dc3545' : '4px solid #28a745'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid #eff2f7', paddingBottom: '14px' }}>
+                      <div>
+                        <h5 style={{ margin: 0, fontSize: '1.08rem', color: '#343a40', fontWeight: '700' }}>
+                          🎁 Referral Program & Commission Settings
+                        </h5>
+                        <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: '#74788d' }}>
+                          Configure referral commission rates, toggle system active/inactive status, and select active referral model.
+                        </p>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#495057' }}>Referral Status:</span>
+                        <button
+                          type="button"
+                          onClick={() => setSettingsData(prev => ({ ...prev, referral_status: prev.referral_status === '0' || prev.referral_status === 0 ? '1' : '0' }))}
+                          style={{
+                            padding: '7px 18px',
+                            borderRadius: '20px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontWeight: '700',
+                            fontSize: '0.85rem',
+                            backgroundColor: (settingsData.referral_status === '0' || settingsData.referral_status === 0) ? '#dc3545' : '#28a745',
+                            color: '#ffffff',
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          {(settingsData.referral_status === '0' || settingsData.referral_status === 0) ? '🔴 INACTIVE (Disabled)' : '🟢 ACTIVE (Enabled)'}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px', maxWidth: '700px' }}>
+                      <div>
+                        <label style={{ fontSize: '0.84rem', fontWeight: '600', color: '#495057', display: 'block', marginBottom: '6px' }}>
+                          Referral Commission / Bonus Value (% or ₹) *
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="Enter value (e.g. 5 for 5% or 50 for ₹50)"
+                          value={settingsData.referral_commission ?? ''}
+                          onChange={(e) => setSettingsData({ ...settingsData, referral_commission: e.target.value })}
+                          style={{ width: '100%', padding: '9px 12px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '0.9rem', fontWeight: '600', color: '#343a40' }}
+                        />
+                        <span style={{ fontSize: '0.78rem', color: '#74788d', marginTop: '4px', display: 'block' }}>
+                          * For Deposit / Bid types, this value acts as Percentage (%). For Signup type, this value acts as Fixed Points (₹).
+                        </span>
+                      </div>
+                    </div>
+
+                    <h6 style={{ margin: '16px 0 12px 0', fontSize: '0.92rem', color: '#343a40', fontWeight: '700' }}>
+                      Select Active Referral Model (Only One Can Be Active):
+                    </h6>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {REFERRAL_TYPES_LIST.map((typeObj) => {
+                        const isSelected = (settingsData.referral_type || 'signup') === typeObj.id;
+                        return (
+                          <div
+                            key={typeObj.id}
+                            onClick={() => setSettingsData({ ...settingsData, referral_type: typeObj.id })}
+                            style={{
+                              border: isSelected ? '2px solid #556ee6' : '1px solid #eff2f7',
+                              backgroundColor: isSelected ? '#f4f6ff' : '#f8f9fa',
+                              borderRadius: '8px',
+                              padding: '14px 18px',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                              boxShadow: isSelected ? '0 4px 10px rgba(85,110,230,0.1)' : 'none'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <input
+                                  type="radio"
+                                  name="referral_type_radio"
+                                  checked={isSelected}
+                                  onChange={() => setSettingsData({ ...settingsData, referral_type: typeObj.id })}
+                                  style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#556ee6' }}
+                                />
+                                <span style={{ fontWeight: '700', fontSize: '0.95rem', color: isSelected ? '#556ee6' : '#343a40' }}>
+                                  {typeObj.title}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ backgroundColor: isSelected ? '#e0e7ff' : '#e9ecef', color: isSelected ? '#4338ca' : '#495057', fontSize: '0.75rem', padding: '3px 10px', borderRadius: '12px', fontWeight: '600' }}>
+                                  {typeObj.badge}
+                                </span>
+                                {isSelected && (
+                                  <span style={{ backgroundColor: '#28a745', color: '#ffffff', fontSize: '0.75rem', padding: '3px 10px', borderRadius: '12px', fontWeight: 'bold' }}>
+                                    ✓ ACTIVE
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <p style={{ margin: '4px 0 0 26px', fontSize: '0.83rem', color: '#74788d', lineHeight: '1.4' }}>
+                              {typeObj.description}
+                            </p>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -4920,6 +5223,7 @@ const AdminDashboard = ({ setAdminAuth }) => {
                         <th style={{ padding: '10px 12px', textAlign: 'left', color: '#495057' }}>#</th>
                         <th style={{ padding: '10px 12px', textAlign: 'left', color: '#495057' }}>User Name</th>
                         <th style={{ padding: '10px 12px', textAlign: 'left', color: '#495057' }}>Mobile</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'left', color: '#495057' }}>Bank & Payout Details</th>
                         <th style={{ padding: '10px 12px', textAlign: 'left', color: '#495057' }}>Amount</th>
                         <th style={{ padding: '10px 12px', textAlign: 'left', color: '#495057' }}>Request No.</th>
                         <th style={{ padding: '10px 12px', textAlign: 'left', color: '#495057' }}>Date</th>
@@ -4942,6 +5246,21 @@ const AdminDashboard = ({ setAdminAuth }) => {
                             </button>
                           </td>
                           <td style={{ padding: '10px 12px' }}>{item.username}</td>
+                          <td style={{ padding: '10px 12px', fontSize: '0.8rem' }}>
+                            {item.account_number || item.bank_name || item.paytm || item.phonepay || item.googlepay ? (
+                              <div style={{ lineHeight: '1.4' }}>
+                                {item.bank_name && <div><span style={{ color: '#74788d' }}>Bank:</span> <strong>{item.bank_name}</strong></div>}
+                                {item.account_number && <div><span style={{ color: '#74788d' }}>A/C:</span> <strong style={{ fontFamily: 'monospace', color: '#556ee6' }}>{item.account_number}</strong></div>}
+                                {item.ifsc_code && <div><span style={{ color: '#74788d' }}>IFSC:</span> <strong>{item.ifsc_code}</strong></div>}
+                                {item.account_holder_name && <div><span style={{ color: '#74788d' }}>Name:</span> {item.account_holder_name}</div>}
+                                {item.paytm && <div><span style={{ color: '#74788d' }}>Paytm:</span> {item.paytm}</div>}
+                                {item.phonepay && <div><span style={{ color: '#74788d' }}>PhonePe:</span> {item.phonepay}</div>}
+                                {item.googlepay && <div><span style={{ color: '#74788d' }}>GPay:</span> {item.googlepay}</div>}
+                              </div>
+                            ) : (
+                              <span style={{ color: '#adb5bd', fontStyle: 'italic' }}>No bank details</span>
+                            )}
+                          </td>
                           <td style={{ padding: '10px 12px', fontWeight: 'bold', color: '#f46a6a' }}>₹ {item.points}</td>
                           <td style={{ padding: '10px 12px' }}>{item.id}</td>
                           <td style={{ padding: '10px 12px' }}>{item.date}</td>
@@ -4986,10 +5305,10 @@ const AdminDashboard = ({ setAdminAuth }) => {
                         </tr>
                       ))}
                       {withReqList.length === 0 && !withReqLoading && (
-                        <tr><td colSpan="8" style={{ padding: '24px', textAlign: 'center', color: '#74788d' }}>No Report Found</td></tr>
+                        <tr><td colSpan="9" style={{ padding: '24px', textAlign: 'center', color: '#74788d' }}>No Report Found</td></tr>
                       )}
                       {withReqLoading && (
-                        <tr><td colSpan="8" style={{ padding: '24px', textAlign: 'center', color: '#556ee6' }}>Loading Withdraw Requests...</td></tr>
+                        <tr><td colSpan="9" style={{ padding: '24px', textAlign: 'center', color: '#556ee6' }}>Loading Withdraw Requests...</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -5027,23 +5346,140 @@ const AdminDashboard = ({ setAdminAuth }) => {
                 )}
 
                 <form onSubmit={handleAddFundSubmit}>
-                  <div style={{ marginBottom: '16px' }}>
+                  {/* SEARCHABLE USER SELECTION BOX */}
+                  {/* DECLARE-RESULT STYLE FLOATING SUGGESTIONS SEARCH USER INPUT */}
+                  <div style={{ position: 'relative', marginBottom: '20px' }}>
                     <label style={{ fontSize: '0.82rem', fontWeight: '600', color: '#495057', display: 'block', marginBottom: '6px' }}>
-                      Select User *
+                      Select User (Search Name / Phone) *
                     </label>
-                    <select
-                      value={addFundUserPhone}
-                      onChange={(e) => setAddFundUserPhone(e.target.value)}
-                      required
-                      style={{ width: '100%', padding: '10px 14px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '0.88rem', color: '#495057', outline: 'none' }}
-                    >
-                      <option value="">Select User</option>
-                      {users.map(u => (
-                        <option key={u.id} value={u.phone}>
-                          {u.name} ({u.phone}) - Current Balance: ₹{u.wallet || 0}
-                        </option>
-                      ))}
-                    </select>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        placeholder="Search or Select User (e.g. Rahul 9876543210)"
+                        value={userSearchQuery}
+                        onFocus={() => setShowAddFundUserDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowAddFundUserDropdown(false), 200)}
+                        onChange={(e) => {
+                          setUserSearchQuery(e.target.value);
+                          setAddFundUserPhone('');
+                          setShowAddFundUserDropdown(true);
+                        }}
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '0.88rem', color: '#495057', outline: 'none' }}
+                        required={!addFundUserPhone}
+                      />
+                      {userSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUserSearchQuery('');
+                            setAddFundUserPhone('');
+                            setShowAddFundUserDropdown(true);
+                          }}
+                          title="Clear Search"
+                          style={{
+                            position: 'absolute',
+                            right: '10px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: '#74788d',
+                            fontSize: '0.9rem',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Floating Dropdown List (exact declare_result Open Pana pattern) */}
+                    {showAddFundUserDropdown && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        maxHeight: '220px',
+                        overflowY: 'auto',
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #ced4da',
+                        borderRadius: '0 0 6px 6px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        zIndex: 1000
+                      }}>
+                        {(() => {
+                          const filtered = users.filter(u => {
+                            if (!userSearchQuery.trim()) return true;
+                            const q = userSearchQuery.toLowerCase().trim();
+                            return (u.name || '').toLowerCase().includes(q) || (u.phone || '').includes(q);
+                          });
+
+                          if (filtered.length === 0) {
+                            return (
+                              <div style={{ padding: '12px 14px', fontSize: '0.85rem', color: '#74788d', textAlign: 'center' }}>
+                                No matching user found for "{userSearchQuery}"
+                              </div>
+                            );
+                          }
+
+                          return filtered.map(u => (
+                            <div
+                              key={u.id}
+                              onMouseDown={() => {
+                                setAddFundUserPhone(u.phone);
+                                setUserSearchQuery(`${u.name} (${u.phone})`);
+                                setShowAddFundUserDropdown(false);
+                              }}
+                              style={{
+                                padding: '9px 14px',
+                                fontSize: '0.88rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                borderBottom: '1px solid #f0f0f0',
+                                backgroundColor: addFundUserPhone === u.phone ? '#eef2ff' : '#ffffff'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8f9fa'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = addFundUserPhone === u.phone ? '#eef2ff' : '#ffffff'}
+                            >
+                              <div>
+                                <strong style={{ color: '#343a40' }}>{u.name}</strong>{' '}
+                                <span style={{ color: '#556ee6', fontSize: '0.82rem' }}>({u.phone})</span>
+                              </div>
+                              <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#28a745' }}>
+                                Balance: ₹{u.wallet || 0}
+                              </span>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    )}
+
+                    {/* Selected User Confirmation Badge */}
+                    {addFundUserPhone && (() => {
+                      const selUser = users.find(u => u.phone === addFundUserPhone);
+                      if (!selUser) return null;
+                      return (
+                        <div style={{
+                          marginTop: '8px',
+                          padding: '8px 12px',
+                          backgroundColor: '#def7ec',
+                          border: '1px solid #bcf0da',
+                          borderRadius: '4px',
+                          fontSize: '0.82rem',
+                          color: '#03543f',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between'
+                        }}>
+                          <span>✓ Selected User: <strong>{selUser.name}</strong> ({selUser.phone})</span>
+                          <span>Current Wallet: <strong>₹{selUser.wallet || 0}</strong></span>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div style={{ marginBottom: '20px' }}>
@@ -5434,26 +5870,152 @@ const AdminDashboard = ({ setAdminAuth }) => {
                     </div>
                   )}
 
-                  <button
-                    type="submit"
-                    disabled={declareLoading}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      fontSize: '0.95rem',
-                      fontWeight: '600',
-                      backgroundColor: '#556ee6',
-                      color: '#ffffff',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      boxShadow: '0 2px 6px rgba(85, 110, 230, 0.3)',
-                      transition: 'background 0.2s ease'
-                    }}
-                  >
-                    {declareLoading ? 'Declaring & Processing Payouts...' : 'DECLARE GAME RESULT'}
-                  </button>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <button
+                      type="button"
+                      onClick={handlePreviewWinners}
+                      disabled={previewLoading}
+                      style={{
+                        padding: '12px',
+                        fontSize: '0.9rem',
+                        fontWeight: '600',
+                        backgroundColor: '#eff2f7',
+                        color: '#556ee6',
+                        border: '1px solid #556ee6',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {previewLoading ? 'Loading Preview...' : '👁️ SHOW WINNERS PREVIEW'}
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={declareLoading}
+                      style={{
+                        padding: '12px',
+                        fontSize: '0.95rem',
+                        fontWeight: '600',
+                        backgroundColor: '#556ee6',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 6px rgba(85, 110, 230, 0.3)',
+                        transition: 'background 0.2s ease'
+                      }}
+                    >
+                      {declareLoading ? 'Declaring & Processing Payouts...' : 'DECLARE GAME RESULT'}
+                    </button>
+                  </div>
                 </form>
+              </div>
+
+              {/* DECLARED RESULTS LIST TABLE */}
+              <div style={{ marginTop: '28px', backgroundColor: '#ffffff', borderRadius: '8px', padding: '24px', border: '1px solid #eff2f7', boxShadow: '0 0.75rem 1.5rem rgba(18,38,63,.03)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+                  <div>
+                    <h5 style={{ margin: '0 0 4px 0', fontSize: '1.05rem', color: '#495057', fontWeight: '600' }}>
+                      Declared Results History
+                    </h5>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: '#74788d' }}>
+                      View declared results and delete/revert winning payouts if needed.
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#495057' }}>Filter Date:</label>
+                    <input
+                      type="date"
+                      value={declareDate}
+                      onChange={(e) => {
+                        setDeclareDate(e.target.value);
+                        fetchDeclaredResults(e.target.value);
+                      }}
+                      style={{ padding: '6px 10px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #eff2f7', textAlign: 'left' }}>
+                        <th style={{ padding: '10px 14px', color: '#495057' }}>Game Name</th>
+                        <th style={{ padding: '10px 14px', color: '#495057' }}>Result Date</th>
+                        <th style={{ padding: '10px 14px', color: '#495057', textAlign: 'center' }}>Open Result</th>
+                        <th style={{ padding: '10px 14px', color: '#495057', textAlign: 'center' }}>Close Result</th>
+                        <th style={{ padding: '10px 14px', color: '#495057', textAlign: 'center' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {declaredResultsList.length === 0 ? (
+                        <tr>
+                          <td colSpan="5" style={{ padding: '20px', textAlign: 'center', color: '#74788d' }}>
+                            {declaredResultsLoading ? 'Loading declared results...' : 'No declared results found for selected date.'}
+                          </td>
+                        </tr>
+                      ) : (
+                        declaredResultsList.map((row) => (
+                          <tr key={row.id} style={{ borderBottom: '1px solid #eff2f7' }}>
+                            <td style={{ padding: '10px 14px', fontWeight: 'bold', color: '#343a40' }}>{row.game_name}</td>
+                            <td style={{ padding: '10px 14px', color: '#74788d' }}>{row.date}</td>
+                            <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                              {row.open_panna ? (
+                                <span style={{ backgroundColor: '#eef2ff', color: '#556ee6', padding: '4px 10px', borderRadius: '6px', fontWeight: 'bold' }}>
+                                  {row.open_panna} - {row.open_digit}
+                                </span>
+                              ) : (
+                                <span style={{ color: '#adb5bd', fontSize: '0.8rem' }}>Not Declared</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                              {row.close_panna ? (
+                                <span style={{ backgroundColor: '#def7ec', color: '#03543f', padding: '4px 10px', borderRadius: '6px', fontWeight: 'bold' }}>
+                                  {row.close_panna} - {row.close_digit}
+                                </span>
+                              ) : (
+                                <span style={{ color: '#adb5bd', fontSize: '0.8rem' }}>Not Declared</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                                {row.open_panna && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteDeclaredResult(row.game_name, row.date, 'open')}
+                                    title="Delete Open Result and revert winning payouts"
+                                    style={{ padding: '4px 8px', fontSize: '0.75rem', backgroundColor: '#f87171', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                                  >
+                                    Delete Open
+                                  </button>
+                                )}
+                                {row.close_panna && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteDeclaredResult(row.game_name, row.date, 'close')}
+                                    title="Delete Close Result and revert winning payouts"
+                                    style={{ padding: '4px 8px', fontSize: '0.75rem', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                                  >
+                                    Delete Close
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteDeclaredResult(row.game_name, row.date, 'all')}
+                                  title="Delete entire result and revert all payouts"
+                                  style={{ padding: '4px 8px', fontSize: '0.75rem', backgroundColor: '#991b1b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                                >
+                                  Delete Full
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
@@ -6698,6 +7260,21 @@ const AdminDashboard = ({ setAdminAuth }) => {
               </p>
             </div>
 
+            {/* Bank & Payout Details Box inside Modal */}
+            <div style={{ backgroundColor: '#edf2f7', padding: '14px', borderRadius: '6px', border: '1px solid #cbd5e0', marginBottom: '18px', fontSize: '0.85rem' }}>
+              <h6 style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#2d3748', fontWeight: 'bold' }}>🏦 User Bank & Payout Details</h6>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                <p style={{ margin: '3px 0' }}><strong>Bank Name:</strong> {selectedWithdrawModal.bank_name || 'N/A'}</p>
+                <p style={{ margin: '3px 0' }}><strong>A/C Holder:</strong> {selectedWithdrawModal.account_holder_name || 'N/A'}</p>
+                <p style={{ margin: '3px 0' }}><strong>A/C Number:</strong> <span style={{ fontFamily: 'monospace', color: '#556ee6', fontWeight: 'bold' }}>{selectedWithdrawModal.account_number || 'N/A'}</span></p>
+                <p style={{ margin: '3px 0' }}><strong>IFSC Code:</strong> {selectedWithdrawModal.ifsc_code || 'N/A'}</p>
+                <p style={{ margin: '3px 0' }}><strong>Branch:</strong> {selectedWithdrawModal.branch_name || 'N/A'}</p>
+                <p style={{ margin: '3px 0' }}><strong>Paytm:</strong> {selectedWithdrawModal.paytm || 'N/A'}</p>
+                <p style={{ margin: '3px 0' }}><strong>PhonePe:</strong> {selectedWithdrawModal.phonepay || 'N/A'}</p>
+                <p style={{ margin: '3px 0' }}><strong>GPay:</strong> {selectedWithdrawModal.googlepay || 'N/A'}</p>
+              </div>
+            </div>
+
             {(selectedWithdrawModal.status === '0' || selectedWithdrawModal.status === 0) ? (
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button
@@ -7078,6 +7655,156 @@ const AdminDashboard = ({ setAdminAuth }) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* WINNER PREVIEW MODAL */}
+      {showWinnerPreviewModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          zIndex: 10500,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '10px',
+            width: '100%',
+            maxWidth: '850px',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            padding: '24px',
+            boxShadow: '0 0.5rem 1rem rgba(0,0,0,0.15)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #eff2f7', paddingBottom: '12px' }}>
+              <div>
+                <h5 style={{ margin: 0, fontSize: '1.15rem', color: '#343a40', fontWeight: '700' }}>
+                  🏆 Winner Preview - {declareSelectedGame || (games[0]?.games_name || '')} ({declareSession.toUpperCase()})
+                </h5>
+                <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: '#74788d' }}>
+                  Date: {declareDate} | Pana: {declareSession === 'open' ? declareOpenPana : declareClosePana} | Digit: {declareSession === 'open' ? declareOpenResult : declareCloseResult}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowWinnerPreviewModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: '#74788d' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Summary cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
+              <div style={{ backgroundColor: '#eef2ff', border: '1px solid #c7d2fe', padding: '14px', borderRadius: '8px', textAlign: 'center' }}>
+                <span style={{ fontSize: '0.8rem', color: '#4338ca', fontWeight: 'bold' }}>TOTAL WINNING USERS</span>
+                <h3 style={{ margin: '4px 0 0 0', fontSize: '1.5rem', color: '#3730a3', fontWeight: '800' }}>
+                  {previewWinnersData.totalWinners}
+                </h3>
+              </div>
+              <div style={{ backgroundColor: '#def7ec', border: '1px solid #bcf0da', padding: '14px', borderRadius: '8px', textAlign: 'center' }}>
+                <span style={{ fontSize: '0.8rem', color: '#03543f', fontWeight: 'bold' }}>ESTIMATED TOTAL PAYOUT</span>
+                <h3 style={{ margin: '4px 0 0 0', fontSize: '1.5rem', color: '#046c4e', fontWeight: '800' }}>
+                  ₹ {previewWinnersData.totalPayout}
+                </h3>
+              </div>
+            </div>
+
+            {/* Winners Table */}
+            <div style={{ overflowX: 'auto', marginBottom: '20px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #eff2f7', textAlign: 'left' }}>
+                    <th style={{ padding: '10px', color: '#495057' }}>User Details</th>
+                    <th style={{ padding: '10px', color: '#495057' }}>Win Type</th>
+                    <th style={{ padding: '10px', color: '#495057', textAlign: 'center' }}>Bid Points</th>
+                    <th style={{ padding: '10px', color: '#495057', textAlign: 'center' }}>Rate</th>
+                    <th style={{ padding: '10px', color: '#495057', textAlign: 'center' }}>Estimated Win Amount</th>
+                    <th style={{ padding: '10px', color: '#495057', textAlign: 'center' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewWinnersData.winners.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" style={{ padding: '24px', textAlign: 'center', color: '#74788d' }}>
+                        No winning bids found for this result selection.
+                      </td>
+                    </tr>
+                  ) : (
+                    previewWinnersData.winners.map(w => (
+                      <tr key={w.id} style={{ borderBottom: '1px solid #eff2f7' }}>
+                        <td style={{ padding: '10px' }}>
+                          <strong style={{ color: '#343a40' }}>{w.user_fullname || w.username}</strong>
+                          <div style={{ fontSize: '0.78rem', color: '#74788d' }}>📞 {w.username}</div>
+                        </td>
+                        <td style={{ padding: '10px', fontWeight: '600', color: '#556ee6' }}>{w.winType || w.game_type}</td>
+                        <td style={{ padding: '10px', textAlign: 'center', fontWeight: 'bold' }}>₹ {w.points_action}</td>
+                        <td style={{ padding: '10px', textAlign: 'center', color: '#74788d' }}>1 : {w.rate}</td>
+                        <td style={{ padding: '10px', textAlign: 'center', fontWeight: 'bold', color: '#10b981', fontSize: '0.95rem' }}>
+                          ₹ {w.winAmount}
+                        </td>
+                        <td style={{ padding: '10px', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditBidModal(w);
+                                setEditBidForm({
+                                  open_pana: w.open_pana || '',
+                                  open_digit: w.open_digit || '',
+                                  close_pana: w.close_pana || '',
+                                  close_digit: w.close_digit || '',
+                                  points_action: w.points_action || ''
+                                });
+                              }}
+                              style={{ padding: '4px 10px', fontSize: '0.75rem', backgroundColor: '#556ee6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                            >
+                              ✏️ Edit Bid
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteBidInPreview(w.id)}
+                              style={{ padding: '4px 10px', fontSize: '0.75rem', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                            >
+                              🗑️ Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setShowWinnerPreviewModal(false)}
+                style={{ padding: '9px 18px', backgroundColor: '#74788d', color: '#ffffff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '600' }}
+              >
+                Close Preview
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowWinnerPreviewModal(false);
+                  const form = document.querySelector('form');
+                  if (form) form.requestSubmit();
+                }}
+                style={{ padding: '9px 20px', backgroundColor: '#10b981', color: '#ffffff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                ✓ CONFIRM & DECLARE RESULT
+              </button>
+            </div>
           </div>
         </div>
       )}

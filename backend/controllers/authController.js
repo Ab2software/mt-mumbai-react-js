@@ -63,6 +63,18 @@ exports.signup = async (req, res) => {
         );
       }
 
+      // Trigger referral commission if referred
+      if (referred_by_value) {
+        try {
+          const adminController = require('./adminController');
+          if (adminController.processReferralCommission) {
+            await adminController.processReferralCommission(user_phone, 'signup', 0);
+          }
+        } catch (e) {
+          console.error('Error triggering signup referral:', e);
+        }
+      }
+
       // Handle Device Token
       if (token_id) {
         const [tokenExists] = await db.query('SELECT * FROM device_token WHERE mobile = ?', [user_phone]);
@@ -74,6 +86,12 @@ exports.signup = async (req, res) => {
       }
 
       // Prepare response data
+      const jwtToken = jwt.sign(
+        { phone: user_phone, name: user_name, role: 'user' },
+        process.env.JWT_SECRET || 'lucky_matka_super_secret_jwt_key_99',
+        { expiresIn: '30d' }
+      );
+
       const data = {
         msg: 'Registered Successfully',
         phone_number: user_phone,
@@ -84,7 +102,8 @@ exports.signup = async (req, res) => {
         status: status,
         phonepay: '',
         googlepay: '',
-        paytm: ''
+        paytm: '',
+        token: jwtToken
       };
 
       return res.json({
@@ -219,6 +238,11 @@ exports.getProfile = async (req, res) => {
     }
 
     const user = users[0];
+
+    if (user.status === '0' || user.status === 0) {
+      return res.json({ success: '0', msg: 'Account Inactive! Contact Admin to activate your account.', is_inactive: true });
+    }
+
     const data = {
       phone_number: user.phone,
       name: user.name,
@@ -232,8 +256,9 @@ exports.getProfile = async (req, res) => {
       account_holder_name: user.account_holder_name || '',
       account_number: user.account_number || '',
       ifsc_code: user.ifsc_code || '',
-      betting_status: user.betting_status,
-      status: user.status,
+      betting_status: String(user.betting_status ?? '1'),
+      transfer_status: String(user.transfer_status ?? '1'),
+      status: String(user.status ?? '1'),
       date: user.date,
       phone: user.phone
     };
@@ -261,9 +286,13 @@ exports.editProfile = async (req, res) => {
 
     const user = users[0];
 
-    const finalPhonepay = (phonpe !== undefined) ? phonpe : (user.phonepay || '');
-    const finalGooglepay = (gpay !== undefined) ? gpay : (user.googlepay || '');
-    const finalPaytm = (paytm !== undefined) ? paytm : (user.paytm || '');
+    const inputPhonepe = req.body.phonepay !== undefined ? req.body.phonepay : req.body.phonpe;
+    const inputGpay = req.body.googlepay !== undefined ? req.body.googlepay : req.body.gpay;
+    const inputPaytm = req.body.paytm;
+
+    const finalPhonepay = (inputPhonepe !== undefined && inputPhonepe !== '') ? inputPhonepe : (user.phonepay || '');
+    const finalGooglepay = (inputGpay !== undefined && inputGpay !== '') ? inputGpay : (user.googlepay || '');
+    const finalPaytm = (inputPaytm !== undefined && inputPaytm !== '') ? inputPaytm : (user.paytm || '');
 
     const fields = {
       phonepay: finalPhonepay,

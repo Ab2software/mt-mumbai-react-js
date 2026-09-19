@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Play, BarChart3, PlusCircle, ArrowUpRight, Trophy, Percent, Megaphone, Clock, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Play, BarChart3, PlusCircle, ArrowUpRight, Trophy, Percent, Megaphone, Clock, Sparkles, ChevronLeft, ChevronRight, HelpCircle } from 'lucide-react';
 import api from '../utils/api';
 
 const Dashboard = () => {
@@ -298,6 +298,10 @@ const Dashboard = () => {
           <Percent size={18} style={{ color: '#38bdf8' }} />
           <span>Game Rates</span>
         </Link>
+        {/* <Link to="/how-to-play" className="quick-action-pill">
+          <HelpCircle size={18} style={{ color: '#a855f7' }} />
+          <span>How To Play</span>
+        </Link> */}
       </div>
 
       {/* Markets Section Header */}

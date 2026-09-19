@@ -64,7 +64,7 @@ const PlayGame = () => {
     isClosed: false
   });
 
-  const cleanTimeToToday = (timeStr) => {
+  const cleanTimeToToday = (timeStr, refDate = new Date()) => {
     if (!timeStr) return null;
     const clean = String(timeStr).trim().toLowerCase();
     const match = clean.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)?$/);
@@ -74,31 +74,48 @@ const PlayGame = () => {
     const modifier = match[4];
     if (modifier === 'pm' && hours < 12) hours += 12;
     else if (modifier === 'am' && hours === 12) hours = 0;
-    const d = new Date();
+    const d = new Date(refDate);
     d.setHours(hours, minutes, 0, 0);
     return d;
   };
 
   const evaluateMarket = (g) => {
+    if (g && g.is_running !== undefined && g.is_open_session !== undefined) {
+      const isRunning = !!g.is_running;
+      const isOpenActive = isRunning && !!g.is_open_session;
+
+      setMarketStatus({
+        isOpen: isRunning,
+        isOpenSession: isOpenActive,
+        isClosed: !isRunning
+      });
+
+      if (!isOpenActive) {
+        setSession('Close');
+      }
+      return;
+    }
+
     const oTime = g?.open_time || searchParams.get('openTime');
     const cTime = g?.close_time || searchParams.get('closeTime');
 
-    const now = new Date();
-    const fixedStartTime = cleanTimeToToday('05:00 am');
-    const openTimeObj = cleanTimeToToday(oTime);
-    const closeTimeObj = cleanTimeToToday(cTime);
+    // Convert current time to India Standard Time (IST)
+    const nowIST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+    const fixedStartTime = cleanTimeToToday('05:00 am', nowIST);
+    const openTimeObj = cleanTimeToToday(oTime, nowIST);
+    const closeTimeObj = cleanTimeToToday(cTime, nowIST);
 
-    let isRunning = true;
-    if (g && g.is_running !== undefined) {
-      isRunning = !!g.is_running;
-    } else {
-      const isGameEnabled = g?.game_status === undefined || String(g.game_status) !== '0';
-      const isAfterStart = fixedStartTime ? now >= fixedStartTime : true;
-      const isBeforeClose = closeTimeObj ? now <= closeTimeObj : true;
-      isRunning = isGameEnabled && isAfterStart && isBeforeClose;
+    if (openTimeObj && closeTimeObj && closeTimeObj < openTimeObj) {
+      if (nowIST >= openTimeObj) {
+        closeTimeObj.setDate(closeTimeObj.getDate() + 1);
+      } else {
+        openTimeObj.setDate(openTimeObj.getDate() - 1);
+      }
     }
 
-    const isOpenActive = openTimeObj ? now < openTimeObj : true;
+    const isGameEnabled = g?.game_status === undefined || String(g.game_status) !== '0';
+    const isRunning = isGameEnabled && (fixedStartTime ? nowIST >= fixedStartTime : true) && (closeTimeObj ? nowIST <= closeTimeObj : true);
+    const isOpenActive = isRunning && (openTimeObj ? nowIST < openTimeObj : true);
 
     setMarketStatus({
       isOpen: isRunning,
@@ -172,6 +189,13 @@ const PlayGame = () => {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    if (!canBid) {
+      const msg = 'Betting is currently blocked on your account. Please contact Admin.';
+      setError(msg);
+      showMaterialDialog('warning', 'Betting Blocked 🛑', msg);
+      return;
+    }
 
     if (marketStatus.isClosed) {
       const msg = `Bidding is closed for ${gameName} today.`;
@@ -374,6 +398,25 @@ const PlayGame = () => {
 
           {error && <div className="badge badge-danger" style={{ display: 'block', padding: '12px', marginBottom: '18px', textAlign: 'center', borderRadius: '10px' }}>{error}</div>}
           {success && <div className="badge badge-success" style={{ display: 'block', padding: '12px', marginBottom: '18px', textAlign: 'center', borderRadius: '10px' }}>{success}</div>}
+
+          {!canBid && (
+            <div style={{
+              padding: '12px 16px',
+              backgroundColor: 'rgba(239, 68, 68, 0.2)',
+              border: '1px solid #ef4444',
+              borderRadius: '12px',
+              color: '#f87171',
+              fontSize: '0.9rem',
+              fontWeight: '700',
+              marginBottom: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}>
+              <ShieldAlert size={20} />
+              <span>Betting is currently BLOCKED for your account! Contact Admin to unblock.</span>
+            </div>
+          )}
 
           {marketStatus.isClosed && (
             <div style={{

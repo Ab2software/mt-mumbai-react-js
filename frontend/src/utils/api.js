@@ -18,4 +18,37 @@ api.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
+api.interceptors.response.use(
+  (response) => {
+    if (response.data && response.data.is_inactive) {
+      const isAdminReq = response.config?.url && response.config.url.includes('/admin');
+      if (!isAdminReq) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('phone');
+        localStorage.removeItem('name');
+        sessionStorage.removeItem('mpin_unlocked');
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login?error=inactive';
+        }
+      }
+    }
+    return response;
+  },
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      const isAdminReq = error.config?.url && error.config.url.includes('/admin');
+      if (!isAdminReq && (error.response.data?.is_inactive || error.response.data?.msg?.toLowerCase().includes('inactive'))) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('phone');
+        localStorage.removeItem('name');
+        sessionStorage.removeItem('mpin_unlocked');
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login?error=inactive';
+        }
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;

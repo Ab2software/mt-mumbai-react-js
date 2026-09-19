@@ -44,12 +44,43 @@ const AddBank = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSaving(true);
     setMsg('');
     setError('');
 
+    const bankName = formData.bank_name.trim();
+    const holderName = formData.account_holder_name.trim();
+    const accNo = formData.account_number.trim();
+    const ifsc = formData.ifsc_code.trim().toUpperCase();
+
+    if (!bankName) {
+      setError('Please enter your Bank Name.');
+      return;
+    }
+
+    if (!holderName || holderName.length < 2) {
+      setError('Please enter a valid Account Holder Name.');
+      return;
+    }
+
+    if (!/^\d{9,18}$/.test(accNo)) {
+      setError('Account Number must be between 9 and 18 digits.');
+      return;
+    }
+
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
+      setError('Invalid IFSC Code format! (e.g., SBIN0001234 - 11 characters, 5th character must be 0)');
+      return;
+    }
+
+    setSaving(true);
     try {
-      const res = await api.post('/profile/update', formData);
+      const res = await api.post('/profile/update', {
+        ...formData,
+        bank_name: bankName,
+        account_holder_name: holderName,
+        account_number: accNo,
+        ifsc_code: ifsc
+      });
       if (res.data.success === '1') {
         setMsg('Bank Details Saved Successfully!');
         loadData();
@@ -139,25 +170,27 @@ const AddBank = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Account Number</label>
+                <label className="form-label">Account Number (Digits Only)</label>
                 <input
                   type="text"
                   className="form-input"
-                  placeholder="Enter Account Number"
+                  placeholder="Enter 9 to 18 digit Account Number"
                   value={formData.account_number}
-                  onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, account_number: e.target.value.replace(/\D/g, '').slice(0, 18) })}
+                  maxLength={18}
                   required
                 />
               </div>
 
               <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                <label className="form-label">IFSC Code</label>
+                <label className="form-label">IFSC Code (11 Characters)</label>
                 <input
                   type="text"
                   className="form-input"
-                  placeholder="Enter IFSC Code (e.g. SBIN0001234)"
+                  placeholder="Enter 11-character IFSC Code (e.g. SBIN0001234)"
                   value={formData.ifsc_code}
-                  onChange={(e) => setFormData({ ...formData, ifsc_code: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, ifsc_code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11) })}
+                  maxLength={11}
                   required
                 />
               </div>

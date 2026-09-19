@@ -15,6 +15,11 @@ const Login = ({ setAuth }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get('error') === 'inactive') {
+      setError('Account Inactive! Contact Admin to activate your account.');
+    }
+
     api.get('/app-info').then(res => {
       if (res.data?.success === '1' && res.data.data) {
         if (res.data.data.app_name) {

@@ -1,7 +1,14 @@
 const db = require('../config/db');
 
-// Helper to convert time format "hh:mm AM/PM" or "hh:mm" to Date object (case-insensitive PHP strtotime parity)
-function getTodayTime(timeStr) {
+// Get current Date & Time in India Standard Time (Asia/Kolkata / UTC+5:30)
+function getISTDate() {
+  const now = new Date();
+  const istString = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+  return new Date(istString);
+}
+
+// Helper to convert time format "hh:mm AM/PM" or "hh:mm" to Date object using IST date reference
+function getTodayTime(timeStr, refISTDate = getISTDate()) {
   if (!timeStr) return new Date(0);
   const clean = String(timeStr).trim().toLowerCase();
   const match = clean.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)?$/);
@@ -14,15 +21,45 @@ function getTodayTime(timeStr) {
   } else if (modifier === 'am' && hours === 12) {
     hours = 0;
   }
-  const date = new Date();
+  const date = new Date(refISTDate);
   date.setHours(hours, minutes, 0, 0);
   return date;
+}
+
+// Evaluate market open/close timing handling overnight windows cleanly
+function evaluateGameTiming(openTimeStr, closeTimeStr, marketOpenTimeStr, nowIST = getISTDate()) {
+  const fixedStartTime = getTodayTime(marketOpenTimeStr && marketOpenTimeStr !== '00:00:00' ? marketOpenTimeStr : '05:00 am', nowIST);
+  const openTimeObj = getTodayTime(openTimeStr, nowIST);
+  const closeTimeObj = getTodayTime(closeTimeStr, nowIST);
+
+  if (openTimeObj && closeTimeObj) {
+    // Handle overnight market window (e.g., Open 10:00 PM, Close 02:00 AM next day)
+    if (closeTimeObj < openTimeObj) {
+      if (nowIST >= openTimeObj) {
+        closeTimeObj.setDate(closeTimeObj.getDate() + 1);
+      } else {
+        openTimeObj.setDate(openTimeObj.getDate() - 1);
+      }
+    }
+  }
+
+  const isWithinWindow = nowIST >= fixedStartTime && nowIST <= closeTimeObj;
+  const isOpenSessionActive = isWithinWindow && nowIST < openTimeObj;
+
+  return {
+    fixedStartTime,
+    openTimeObj,
+    closeTimeObj,
+    isWithinWindow,
+    isOpenSessionActive
+  };
 }
 
 // Fetch Active Games for Today
 exports.getGames = async (req, res) => {
   const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const todayDayName = daysOfWeek[new Date().getDay()];
+  const nowIST = getISTDate();
+  const todayDayName = daysOfWeek[nowIST.getDay()];
 
   try {
     // 1. Get all game times for today
@@ -39,17 +76,11 @@ exports.getGames = async (req, res) => {
     const [settings] = await db.query("SELECT market_open_time FROM admin_settings LIMIT 1");
     const marketOpenTime = settings.length > 0 ? settings[0].market_open_time : '00:00:00';
 
-    const currentTimeObj = new Date();
-    // Fixed start time: 05:00 AM (PHP default) or admin_settings.market_open_time if set
-    const fixedStartTime = getTodayTime(marketOpenTime && marketOpenTime !== '00:00:00' ? marketOpenTime : '05:00 am');
-
-    // Calculate today's date based on market open time logic
-    let todayDateStr = new Date().toISOString().slice(0, 10);
-    if (currentTimeObj < fixedStartTime) {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      todayDateStr = yesterday.toISOString().slice(0, 10);
-    }
+    // Calculate today's date in IST YYYY-MM-DD
+    const yyyy = nowIST.getFullYear();
+    const mm = String(nowIST.getMonth() + 1).padStart(2, '0');
+    const dd = String(nowIST.getDate()).padStart(2, '0');
+    const todayDateStr = `${yyyy}-${mm}-${dd}`;
 
     // 4. Assemble result
     const result = [];
@@ -73,17 +104,10 @@ exports.getGames = async (req, res) => {
         }
       }
 
-      // PHP parity:
-      // $closeTimeInSeconds = timeConvert($item['close_time']);
-      // $withinTimeWindow = ($currentTimeInSeconds >= $fixedStartTime && $currentTimeInSeconds <= $closeTimeInSeconds);
-      // $gameEnabled = !(isset($item['game_status']) && $item['game_status'] == "0");
-      // $marketStatus = $gameEnabled && $withinTimeWindow;
-      const openTimeObj = getTodayTime(g.open_time);
-      const closeTimeObj = getTodayTime(g.close_time);
+      const timing = evaluateGameTiming(g.open_time, g.close_time, marketOpenTime, nowIST);
       const gameEnabled = g.status !== '0';
-      const withinTimeWindow = currentTimeObj >= fixedStartTime && currentTimeObj <= closeTimeObj;
-      const isRunning = gameEnabled && withinTimeWindow;
-      const isOpenSessionActive = currentTimeObj < openTimeObj;
+      const isRunning = gameEnabled && timing.isWithinWindow;
+      const isOpenSessionActive = isRunning && timing.isOpenSessionActive;
 
       result.push({
         id: g.id,
@@ -131,14 +155,24 @@ exports.placeBid = async (req, res) => {
   }
 
   try {
+    const phone = req.user.phone;
+    const [userCheck] = await db.query('SELECT status, betting_status FROM user_info WHERE phone = ?', [phone]);
+    if (userCheck.length > 0) {
+      if (userCheck[0].status === '0' || userCheck[0].status === 0) {
+        return res.json({ success: '0', msg: 'Account Inactive! Contact Admin to activate your account.', is_inactive: true });
+      }
+      if (userCheck[0].betting_status === '0' || userCheck[0].betting_status === 0) {
+        return res.json({ success: '0', msg: 'Betting is currently blocked for your account! Contact Admin.' });
+      }
+    }
+
     const [settings] = await db.query("SELECT * FROM admin_settings LIMIT 1");
     const limits = settings[0] || {};
     const minBidAmt = parseInt(limits.min_bid_amt, 10) > 0 ? parseInt(limits.min_bid_amt, 10) : 10;
     const maxBidAmt = parseInt(limits.max_bid_amt, 10) > 0 ? parseInt(limits.max_bid_amt, 10) : 50000;
 
-    const currentTimeObj = new Date();
+    const nowIST = getISTDate();
     const marketOpenTimeStr = limits.market_open_time && limits.market_open_time !== '00:00:00' ? limits.market_open_time : '05:00 am';
-    const start_time = getTodayTime(marketOpenTimeStr);
 
     for (const b of bids) {
       const phone = req.user.phone; // get phone number from verified token
@@ -152,7 +186,7 @@ exports.placeBid = async (req, res) => {
 
       // Check game exist and get timings for today (with trimmed comparison)
       const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-      const todayDayName = daysOfWeek[new Date().getDay()];
+      const todayDayName = daysOfWeek[nowIST.getDay()];
       let [games] = await db.query(
         "SELECT * FROM game_time WHERE TRIM(game) = TRIM(?) AND day = ? LIMIT 1",
         [game_name, todayDayName]
@@ -172,33 +206,33 @@ exports.placeBid = async (req, res) => {
         return res.json({ success: '0', msg: 'Market is closed for today' });
       }
 
-      // Validate market open/close timings (PHP set_bid_new.php parity)
-      const openTimeObj = getTodayTime(gameTime.open_time);
-      const closeTimeObj = getTodayTime(gameTime.close_time);
+      // Validate market open/close timings with IST and overnight window handling
+      const timing = evaluateGameTiming(gameTime.open_time, gameTime.close_time, marketOpenTimeStr, nowIST);
 
       let allowed = true;
       if (session === 'Open') {
-        if (currentTimeObj > openTimeObj || currentTimeObj < start_time) {
+        if (!timing.isOpenSessionActive) {
           allowed = false;
         }
       } else if (session === 'Close') {
-        if (currentTimeObj > closeTimeObj || currentTimeObj < start_time) {
+        if (!timing.isWithinWindow) {
           allowed = false;
         }
       }
 
       // If game type is Jodi Digit, Half Sangam, or Full Sangam, it cannot be bid after Open time!
       if (game_type === 'Jodi' || game_type === 'Jodi Digit' || game_type === 'Half Sangam' || game_type === 'Full Sangam') {
-        if (currentTimeObj > openTimeObj) {
+        if (!timing.isOpenSessionActive) {
           allowed = false;
         }
       }
 
       if (!allowed) {
+        const formattedIST = nowIST.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
         return res.json({
           success: '0',
           msg: session === 'Open' ? 'Open Market Closed' : 'Market Closed',
-          current_time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+          current_time: formattedIST,
           open_time: gameTime.open_time,
           close_time: gameTime.close_time
         });
@@ -234,9 +268,12 @@ exports.placeBid = async (req, res) => {
         return res.json({ success: '0', msg: 'Insufficient Funds' });
       }
 
-      // Insert bid
-      const currentDateStr = new Date().toISOString().slice(0, 10);
-      const currentTimeStr = new Date().toTimeString().slice(0, 8);
+      // Insert bid with IST date and time
+      const yyyy = nowIST.getFullYear();
+      const mm = String(nowIST.getMonth() + 1).padStart(2, '0');
+      const dd = String(nowIST.getDate()).padStart(2, '0');
+      const currentDateStr = `${yyyy}-${mm}-${dd}`;
+      const currentTimeStr = nowIST.toTimeString().slice(0, 8);
 
       const [insertResult] = await db.query(
         "INSERT INTO user_bid_history (username, game_name, game_type, session, open_pana, open_digit, close_pana, close_digit, points_action, date, time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -250,6 +287,17 @@ exports.placeBid = async (req, res) => {
           "INSERT INTO wallet_history (status, date, time, amount, updated_amount, remark, phone_number) VALUES (?, ?, ?, ?, ?, ?, ?)",
           ['0', currentDateStr, currentTimeStr, points, newBalance, 'Deduct for Bid', phone]
         );
+
+        // Trigger referral commission for bid placement
+        try {
+          const adminController = require('./adminController');
+          if (adminController.processReferralCommission) {
+            adminController.processReferralCommission(phone, 'every_bet', points);
+            adminController.processReferralCommission(phone, 'first_bet', points);
+          }
+        } catch (e) {
+          console.error('Error triggering bid referral commission:', e);
+        }
       } else {
         return res.json({ success: '0', msg: 'Database Error while placing bid' });
       }

@@ -12,6 +12,9 @@ exports.getWalletInfo = async (req, res) => {
       return res.json({ success: '0', msg: 'User Not Found!' });
     }
     const user = users[0];
+    if (user.status === '0' || user.status === 0) {
+      return res.json({ success: '0', msg: 'Account Inactive! Contact Admin to activate your account.', is_inactive: true });
+    }
 
     const [contacts] = await db.query('SELECT * FROM contact_detail LIMIT 1');
     const contact = contacts[0] || { mobile: '', wp_mobile: '' };
@@ -27,12 +30,16 @@ exports.getWalletInfo = async (req, res) => {
     const [admins] = await db.query('SELECT wallet FROM admin WHERE id = 1');
     const adminCoins = admins.length > 0 ? parseFloat(admins[0].wallet || '0') : 0;
 
+    const referralStatus = (setting.referral_status !== undefined && setting.referral_status !== null) ? String(setting.referral_status) : '1';
+
     const data = {
       phone_number: user.phone,
       wallet: user.wallet,
       admin_coins: adminCoins,
-      can_bid: true,
-      status: user.status,
+      can_bid: String(user.betting_status ?? '1') !== '0',
+      status: String(user.status ?? '1'),
+      betting_status: String(user.betting_status ?? '1'),
+      transfer_status: String(user.transfer_status ?? '1'),
       start_time: '01:00',
       admin_mobile: contact.mobile,
       admin_wp: contact.wp_mobile,
@@ -43,6 +50,7 @@ exports.getWalletInfo = async (req, res) => {
       show_upi: showUpi,
       show_qr: showQr,
       mpin_status: mpinStatus,
+      referral_status: referralStatus,
       barcode_payment_mode: barcodePaymentMode,
       upi_phone: setting.phonepepay_upi || '',
       upi_google: setting.gpay_upi || '',
@@ -53,8 +61,10 @@ exports.getWalletInfo = async (req, res) => {
       max_limit: parseInt(setting.max_bid_amt, 10) > 0 ? setting.max_bid_amt : '50000',
       share_url: setting.app_link || '',
       share_message: setting.content || '',
-      min_withdraw: setting.withdraw_open_time,
-      max_withdraw: setting.withdraw_close_time,
+      min_withdraw: setting.withdraw_open_time || '09:00',
+      max_withdraw: setting.withdraw_close_time || '21:00',
+      withdraw_open_time: setting.withdraw_open_time || '09:00',
+      withdraw_close_time: setting.withdraw_close_time || '21:00',
       min_withdrawal: setting.min_withdrawal || '1000',
       max_withdrawal: setting.max_withdrawal || '50000',
       min_deposite: setting.min_deposite,
@@ -270,11 +280,16 @@ exports.getWithdrawHistory = async (req, res) => {
 // Get User Deposit Request Status (PHP deposit-request-status.php parity)
 exports.getDepositRequestStatus = async (req, res) => {
   const phone = req.user.phone;
+  const { date1, date2 } = req.query;
   try {
-    const [deposits] = await db.query(
-      "SELECT id, amount, txt_request, txt_date, status FROM user_auto_deposite WHERE username = ? ORDER BY id DESC LIMIT 100",
-      [phone]
-    );
+    let sql = "SELECT id, amount, txt_request, txt_date, status FROM user_auto_deposite WHERE username = ?";
+    const params = [phone];
+    if (date1 && date2) {
+      sql += " AND DATE(txt_date) BETWEEN ? AND ?";
+      params.push(date1, date2);
+    }
+    sql += " ORDER BY id DESC LIMIT 100";
+    const [deposits] = await db.query(sql, params);
     const result = deposits.map(row => {
       let status_text = 'Pending';
       if (row.status == '1') status_text = 'Approved';

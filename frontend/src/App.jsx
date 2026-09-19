@@ -16,6 +16,7 @@ import WithdrawHistory from './pages/WithdrawHistory';
 import WinHistory from './pages/WinHistory';
 import BidHistory from './pages/BidHistory';
 import GameRate from './pages/GameRate';
+import HowToPlay from './pages/HowToPlay';
 import Support from './pages/Support';
 import PlayGame from './pages/PlayGame';
 import Chart from './pages/Chart';
@@ -74,6 +75,7 @@ function App() {
         <Route path="/win-history" element={renderUserPage(WinHistory)} />
         <Route path="/bid-history" element={renderUserPage(BidHistory)} />
         <Route path="/game-rate" element={renderUserPage(GameRate)} />
+        <Route path="/how-to-play" element={renderUserPage(HowToPlay)} />
         <Route path="/support" element={renderUserPage(Support)} />
         <Route path="/play-game" element={renderUserPage(PlayGame)} />
         <Route path="/chart" element={renderUserPage(Chart)} />
@@ -85,7 +87,7 @@ function App() {
         />
         <Route
           path="/signup"
-          element={!isUserAuth ? <Signup /> : <Navigate to="/" replace />}
+          element={!isUserAuth ? <Signup setAuth={setAuth} /> : <Navigate to="/" replace />}
         />
 
         {/* Admin Routes */}

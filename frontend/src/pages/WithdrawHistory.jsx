@@ -1,17 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Wallet, PlusCircle, CheckCircle2, XCircle, Clock, ArrowUpRight } from 'lucide-react';
+import { ArrowLeft, Wallet, PlusCircle, CheckCircle2, XCircle, Clock, ArrowUpRight, Calendar, Filter } from 'lucide-react';
 import api from '../utils/api';
 
+const getOneWeekAgoStr = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 6);
+  return d.toISOString().slice(0, 10);
+};
+const getTodayStr = () => new Date().toISOString().slice(0, 10);
+
 const WithdrawHistory = () => {
+  const [fromDate, setFromDate] = useState(getOneWeekAgoStr());
+  const [toDate, setToDate] = useState(getTodayStr());
   const [history, setHistory] = useState([]);
   const [wallet, setWallet] = useState('0');
   const [loading, setLoading] = useState(true);
 
-  const fetchHistory = async () => {
+  const fetchHistory = async (d1 = fromDate, d2 = toDate) => {
+    setLoading(true);
     try {
       const [histRes, walRes] = await Promise.all([
-        api.get('/wallet/withdraw-history'),
+        api.get(`/wallet/withdraw-history?date1=${d1}&date2=${d2}`),
         api.get('/wallet/info')
       ]);
 
@@ -31,6 +41,22 @@ const WithdrawHistory = () => {
   useEffect(() => {
     fetchHistory();
   }, []);
+
+  const handleApply = (e) => {
+    e.preventDefault();
+    fetchHistory(fromDate, toDate);
+  };
+
+  const inputStyle = {
+    width: '100%',
+    padding: '8px 12px',
+    borderRadius: '10px',
+    border: '1px solid rgba(255, 255, 255, 0.15)',
+    background: 'rgba(0, 0, 0, 0.25)',
+    color: '#ffffff',
+    fontSize: '0.85rem',
+    outline: 'none'
+  };
 
   return (
     <div style={{ maxWidth: '650px', margin: '0 auto', padding: '16px 14px' }}>
@@ -67,6 +93,57 @@ const WithdrawHistory = () => {
           <Wallet size={16} />
           <span>₹ {wallet}</span>
         </div>
+      </div>
+
+      {/* Date Filter Box */}
+      <div className="card-glass-v2" style={{ padding: '18px', marginBottom: '20px', borderRadius: '16px' }}>
+        <form onSubmit={handleApply}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: '600', color: 'rgba(255,255,255,0.8)', marginBottom: '6px' }}>
+                <Calendar size={14} style={{ color: 'var(--color-gold)' }} />
+                From Date
+              </label>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: '600', color: 'rgba(255,255,255,0.8)', marginBottom: '6px' }}>
+                <Calendar size={14} style={{ color: 'var(--color-gold)' }} />
+                To Date
+              </label>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+          <button
+            type="submit"
+            className="btn-gradient"
+            style={{
+              width: '100%',
+              padding: '10px',
+              borderRadius: '10px',
+              fontWeight: '700',
+              fontSize: '0.88rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <Filter size={16} /> Apply Date Filter
+          </button>
+        </form>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>

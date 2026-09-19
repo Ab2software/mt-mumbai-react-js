@@ -3,10 +3,16 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Wallet, Calendar, Filter, History, CheckCircle2 } from 'lucide-react';
 import api from '../utils/api';
 
+const getOneWeekAgoStr = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 6);
+  return d.toISOString().slice(0, 10);
+};
+const getTodayStr = () => new Date().toISOString().slice(0, 10);
+
 const WalletHistory = () => {
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const [fromDate, setFromDate] = useState('2024-01-01');
-  const [toDate, setToDate] = useState(todayStr);
+  const [fromDate, setFromDate] = useState(getOneWeekAgoStr());
+  const [toDate, setToDate] = useState(getTodayStr());
   const [history, setHistory] = useState([]);
   const [wallet, setWallet] = useState('0');
   const [loading, setLoading] = useState(true);

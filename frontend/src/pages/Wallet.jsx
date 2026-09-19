@@ -24,12 +24,18 @@ const WalletPage = () => {
 
   const loadData = async () => {
     try {
+      const today = new Date();
+      const pastWeek = new Date();
+      pastWeek.setDate(today.getDate() - 6);
+      const d1 = pastWeek.toISOString().slice(0, 10);
+      const d2 = today.toISOString().slice(0, 10);
+
       const infoRes = await api.get('/wallet/info');
       if (infoRes.data.success === '1') {
         setWalletInfo(infoRes.data.data);
       }
 
-      const historyRes = await api.get('/wallet/history');
+      const historyRes = await api.get(`/wallet/history?date1=${d1}&date2=${d2}`);
       if (historyRes.data.success === '1') {
         setHistory(historyRes.data.data);
       }

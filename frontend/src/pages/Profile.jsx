@@ -20,6 +20,7 @@ const Profile = () => {
 
   // M-PIN Change states
   const [mpinStatus, setMpinStatus] = useState('1');
+  const [referralStatus, setReferralStatus] = useState('1');
   const [oldMpin, setOldMpin] = useState('');
   const [newMpin, setNewMpin] = useState('');
   const [confirmMpin, setConfirmMpin] = useState('');
@@ -43,6 +44,9 @@ const Profile = () => {
 
       if (appRes?.data?.data) {
         setMpinStatus(appRes.data.data.mpin_status ?? '1');
+        if (appRes.data.data.referral_status !== undefined) {
+          setReferralStatus(String(appRes.data.data.referral_status));
+        }
       }
     } catch (err) {
       console.error(err);
@@ -211,54 +215,56 @@ const Profile = () => {
           </div>
 
           {/* Card 2: Referral (Dost ko bulao) */}
-          <div className="card-glass-v2" style={{ padding: '20px', marginBottom: '18px', borderRadius: '16px' }}>
-            <h5 style={{ color: 'var(--color-gold)', fontWeight: '700', margin: '0 0 6px 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Share2 size={18} />
-              Referral Program
-            </h5>
-            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.82rem', margin: '0 0 14px 0' }}>
-              Share your referral link with friends and earn rewards on signup!
-            </p>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-              <input
-                type="text"
-                readOnly
-                value={referralLink}
-                style={{
-                  flex: 1,
-                  padding: '10px 12px',
-                  borderRadius: '10px',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  backgroundColor: 'rgba(0,0,0,0.3)',
-                  fontSize: '0.82rem',
-                  color: 'rgba(255,255,255,0.9)',
-                  outline: 'none'
-                }}
-              />
-              <button
-                type="button"
-                onClick={handleCopyReferral}
-                className="btn-gradient"
-                style={{
-                  padding: '9px 16px',
-                  border: 'none',
-                  borderRadius: '10px',
-                  fontWeight: '700',
-                  fontSize: '0.85rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
-              >
-                {copied ? <Check size={16} /> : <Copy size={16} />}
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
+          {referralStatus !== '0' && (
+            <div className="card-glass-v2" style={{ padding: '20px', marginBottom: '18px', borderRadius: '16px' }}>
+              <h5 style={{ color: 'var(--color-gold)', fontWeight: '700', margin: '0 0 6px 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Share2 size={18} />
+                Referral Program
+              </h5>
+              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.82rem', margin: '0 0 14px 0' }}>
+                Share your referral link with friends and earn rewards on signup!
+              </p>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                <input
+                  type="text"
+                  readOnly
+                  value={referralLink}
+                  style={{
+                    flex: 1,
+                    padding: '10px 12px',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    backgroundColor: 'rgba(0,0,0,0.3)',
+                    fontSize: '0.82rem',
+                    color: 'rgba(255,255,255,0.9)',
+                    outline: 'none'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleCopyReferral}
+                  className="btn-gradient"
+                  style={{
+                    padding: '9px 16px',
+                    border: 'none',
+                    borderRadius: '10px',
+                    fontWeight: '700',
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  {copied ? <Check size={16} /> : <Copy size={16} />}
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+              <div style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.8)' }}>
+                <strong>Referral Code / Number:</strong> <span style={{ color: 'var(--color-gold)' }}>{profile.phone || profile.phone_number || ''}</span>
+              </div>
             </div>
-            <div style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.8)' }}>
-              <strong>Referral Code / Number:</strong> <span style={{ color: 'var(--color-gold)' }}>{profile.phone || profile.phone_number || ''}</span>
-            </div>
-          </div>
+          )}
 
           {/* Card 3: Edit Profile */}
           <div className="card-glass-v2" style={{ padding: '20px', borderRadius: '16px' }}>

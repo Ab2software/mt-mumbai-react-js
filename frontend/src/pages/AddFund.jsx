@@ -90,10 +90,23 @@ const AddFund = () => {
       return;
     }
 
+    const cleanUtr = utrNo.trim();
+    if (!cleanUtr) {
+      setError('Please enter the 12-digit UTR / Ref No.');
+      setSubmitting(false);
+      return;
+    }
+
+    if (!/^\d{12}$/.test(cleanUtr)) {
+      setError('UTR / Ref No. must be exactly 12 digits (e.g. 423456789012)');
+      setSubmitting(false);
+      return;
+    }
+
     try {
       const res = await api.post('/wallet/fund-request', {
         amount,
-        utr_no: utrNo,
+        utr_no: cleanUtr,
         image: screenshotBase64,
         name: localStorage.getItem('name') || ''
       });
@@ -152,7 +165,7 @@ const AddFund = () => {
           <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', color: '#0b1a30' }}>
             <ArrowLeft size={20} />
           </Link>
-          <span style={{ fontWeight: '800', fontSize: '1.1rem', textTransform: 'uppercase', letterSpacing: '0.02em' }}>Add Point (Deposit)</span>
+          <span style={{ fontWeight: '800', fontSize: '1.1rem', textTransform: 'uppercase', letterSpacing: '0.02em' }}>Deposit Request</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '800', fontSize: '0.95rem' }}>
           <Wallet size={18} />
@@ -160,30 +173,29 @@ const AddFund = () => {
         </div>
       </div>
 
-      {/* QR & UPI Section */}
+      {/* QR Code & UPI Payment Details Box */}
       {(showQr || showUpi) && (
-        <div className="card-glass-v2" style={{ marginBottom: '20px', textAlign: 'center' }}>
-          <h5 style={{ color: '#ffffff', fontWeight: '800', margin: '0 0 8px 0', fontSize: '1.15rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            <QrCode size={20} style={{ color: 'var(--color-gold, #d6be66)' }} /> 
-            {showQr && showUpi ? 'Scan QR Code or Copy UPI' : showQr ? 'Scan QR Code to Pay' : 'Copy UPI ID to Pay'}
+        <div className="card-glass-v2" style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <h5 style={{ color: 'var(--color-gold, #d6be66)', fontWeight: '800', marginBottom: '14px', fontSize: '1.05rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            <QrCode size={20} /> SCAN & PAY VIA ANY UPI APP
           </h5>
-          <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.85rem', margin: '0 0 16px 0' }}>
-            Pay using Google Pay, PhonePe, Paytm or any UPI app, then submit UTR reference below.
-          </p>
 
-          {showQr && rawQrImage && (
-            <div style={{ marginBottom: '16px' }}>
+          {showQr && qrSrc && (
+            <div style={{
+              backgroundColor: '#ffffff',
+              padding: '14px',
+              borderRadius: '16px',
+              display: 'inline-block',
+              marginBottom: '16px',
+              boxShadow: '0 8px 25px rgba(0,0,0,0.4)',
+              border: '2px solid var(--color-gold, #d6be66)'
+            }}>
               <img
                 src={qrSrc}
-                alt="Payment QR"
-                style={{ width: '200px', height: '200px', objectFit: 'contain', background: '#ffffff', padding: '10px', borderRadius: '14px', boxShadow: '0 8px 25px rgba(0,0,0,0.5)' }}
+                alt="Payment QR Code"
+                style={{ width: '210px', height: '210px', objectFit: 'contain', display: 'block', borderRadius: '8px' }}
                 onError={(e) => {
-                  if (!e.target.dataset.triedFallback && !rawQrImage.startsWith('http') && !rawQrImage.startsWith('data:')) {
-                    e.target.dataset.triedFallback = 'true';
-                    e.target.src = `/${rawQrImage.replace(/^\//, '')}`;
-                  } else {
-                    e.target.style.display = 'none';
-                  }
+                  e.target.style.display = 'none';
                 }}
               />
             </div>
@@ -191,12 +203,15 @@ const AddFund = () => {
 
           {showUpi && upiId && (
             <div style={{
+              backgroundColor: 'rgba(0,0,0,0.4)',
+              border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: '12px',
+              padding: '12px 16px',
               display: 'inline-flex',
               alignItems: 'center',
-              backgroundColor: 'rgba(0, 0, 0, 0.4)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              borderRadius: '12px',
-              padding: '6px 6px 6px 16px',
+              justifyContent: 'center',
+              gap: '12px',
+              flexWrap: 'wrap',
               maxWidth: '100%'
             }}>
               <span style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--color-gold, #d6be66)', marginRight: '12px', wordBreak: 'break-all' }}>
@@ -250,7 +265,7 @@ const AddFund = () => {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Deposit Amount (₹)</label>
+            <label className="form-label">Deposit Amount (₹) *</label>
             <input
               type="number"
               className="form-input"
@@ -263,15 +278,24 @@ const AddFund = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Transaction / UTR Number</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <label className="form-label" style={{ margin: 0 }}>Transaction / UTR Number (12 Digits) *</label>
+              <span style={{ fontSize: '0.78rem', color: utrNo.length === 12 ? '#10b981' : 'rgba(255, 255, 255, 0.5)', fontWeight: '700' }}>
+                {utrNo.length}/12
+              </span>
+            </div>
             <input
               type="text"
               className="form-input"
-              placeholder="Enter 12-digit UTR reference ID"
+              maxLength={12}
+              placeholder="Enter 12-digit UTR (e.g. 423456789012)"
               value={utrNo}
-              onChange={(e) => setUtrNo(e.target.value)}
+              onChange={(e) => setUtrNo(e.target.value.replace(/\D/g, '').slice(0, 12))}
               required
             />
+            <small style={{ color: 'rgba(255, 255, 255, 0.55)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
+              Enter 12-digit UTR/Ref ID from your PhonePe / GPay / Paytm payment receipt.
+            </small>
           </div>
 
           <div className="form-group" style={{ marginBottom: '22px' }}>

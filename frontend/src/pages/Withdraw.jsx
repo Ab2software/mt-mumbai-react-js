@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Wallet, Edit3, CheckCircle2, AlertCircle, ArrowRight, X, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Wallet, Edit3, CheckCircle2, AlertCircle, ArrowRight, X, ShieldCheck, Clock } from 'lucide-react';
 import api from '../utils/api';
 
 const Withdraw = () => {
@@ -23,6 +23,26 @@ const Withdraw = () => {
   const [upiErr, setUpiErr] = useState('');
 
   const navigate = useNavigate();
+
+  const formatTime12h = (timeStr) => {
+    if (!timeStr) return 'N/A';
+    const cleanStr = String(timeStr).trim();
+    if (cleanStr.toUpperCase().includes('AM') || cleanStr.toUpperCase().includes('PM')) {
+      return cleanStr;
+    }
+    const parts = cleanStr.split(':');
+    if (parts.length >= 2) {
+      let hours = parseInt(parts[0], 10);
+      const minutes = parts[1].padStart(2, '0');
+      if (isNaN(hours)) return cleanStr;
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      const strHours = String(hours).padStart(2, '0');
+      return `${strHours}:${minutes} ${ampm}`;
+    }
+    return cleanStr;
+  };
 
   const loadData = async () => {
     try {
@@ -57,19 +77,34 @@ const Withdraw = () => {
     setUpiUpdating(true);
     setUpiMsg('');
     setUpiErr('');
+
+    if (!phonepe.trim() && !paytm.trim() && !gpay.trim()) {
+      setUpiErr('Please enter at least one UPI ID or mobile number.');
+      setUpiUpdating(false);
+      return;
+    }
+
     try {
       const res = await api.post('/profile/update', {
-        phonpe: phonepe,
-        paytm: paytm,
-        gpay: gpay
+        phonpe: phonepe.trim(),
+        phonepay: phonepe.trim(),
+        paytm: paytm.trim(),
+        gpay: gpay.trim(),
+        googlepay: gpay.trim()
       });
       if (res.data.success === '1') {
         setUpiMsg('UPI details updated successfully!');
+        setProfile(prev => ({
+          ...prev,
+          phonepay: phonepe.trim() || prev?.phonepay || '',
+          paytm: paytm.trim() || prev?.paytm || '',
+          googlepay: gpay.trim() || prev?.googlepay || ''
+        }));
         setTimeout(() => {
           setShowUpiModal(false);
           setUpiMsg('');
           loadData();
-        }, 1500);
+        }, 1000);
       } else {
         setUpiErr(res.data.msg || 'Failed to update UPI details.');
       }
@@ -77,6 +112,26 @@ const Withdraw = () => {
       setUpiErr('Error updating UPI details.');
     } finally {
       setUpiUpdating(false);
+    }
+  };
+
+  const handleMethodChange = (e) => {
+    const val = e.target.value;
+    setPaymentMethod(val);
+    setError('');
+
+    if (val === 'PhonePe' && !profile?.phonepay && !phonepe) {
+      setError('PhonePe UPI ID is required! Please add your PhonePe ID below.');
+      setShowUpiModal(true);
+    } else if (val === 'Paytm' && !profile?.paytm && !paytm) {
+      setError('Paytm UPI ID is required! Please add your Paytm ID below.');
+      setShowUpiModal(true);
+    } else if ((val === 'Gpay' || val === 'GPay') && !profile?.googlepay && !gpay) {
+      setError('Google Pay UPI ID is required! Please add your GPay ID below.');
+      setShowUpiModal(true);
+    } else if (val === 'Bank' && !profile?.account_number) {
+      setError('Bank Account details missing! Redirecting to add Bank Account...');
+      setTimeout(() => navigate('/add-bank'), 1500);
     }
   };
 
@@ -91,6 +146,30 @@ const Withdraw = () => {
 
     if (!paymentMethod) {
       setError('Please select a payment method.');
+      return;
+    }
+
+    if (paymentMethod === 'Bank' && !profile?.account_number) {
+      setError('Bank Account details missing! Please add your Bank Account details first.');
+      setTimeout(() => navigate('/add-bank'), 1500);
+      return;
+    }
+
+    if (paymentMethod === 'Paytm' && (!profile?.paytm && !paytm)) {
+      setError('Paytm UPI ID is required for withdrawal! Please add your Paytm ID in the modal.');
+      setShowUpiModal(true);
+      return;
+    }
+
+    if (paymentMethod === 'PhonePe' && (!profile?.phonepay && !phonepe)) {
+      setError('PhonePe UPI ID is required for withdrawal! Please add your PhonePe ID in the modal.');
+      setShowUpiModal(true);
+      return;
+    }
+
+    if ((paymentMethod === 'GPay' || paymentMethod === 'Gpay') && (!profile?.googlepay && !gpay)) {
+      setError('Google Pay UPI ID is required for withdrawal! Please add your GPay ID in the modal.');
+      setShowUpiModal(true);
       return;
     }
 
@@ -143,7 +222,7 @@ const Withdraw = () => {
         background: 'var(--app-gradient-primary, linear-gradient(135deg, #d6be66 0%, #10b981 100%))',
         padding: '12px 18px',
         borderRadius: '14px',
-        marginBottom: '20px',
+        marginBottom: '16px',
         color: '#0b1a30',
         boxShadow: '0 6px 20px rgba(0,0,0,0.3)'
       }}>
@@ -156,6 +235,53 @@ const Withdraw = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '800', fontSize: '0.95rem' }}>
           <Wallet size={18} />
           <span>₹ {walletInfo?.wallet || '0'}</span>
+        </div>
+      </div>
+
+      {/* Admin Configured Withdraw Timing Card */}
+      <div className="card-glass-v2" style={{
+        padding: '16px 20px',
+        borderRadius: '16px',
+        marginBottom: '20px',
+        border: '1px solid rgba(214, 190, 102, 0.3)',
+        boxShadow: '0 8px 25px rgba(0,0,0,0.4)'
+      }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '12px',
+          alignItems: 'center',
+          textAlign: 'center'
+        }}>
+          {/* Withdraw Open Time */}
+          <div style={{
+            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+            padding: '12px 14px',
+            borderRadius: '12px',
+            border: '1px solid rgba(16, 185, 129, 0.25)'
+          }}>
+            <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.75)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: '700', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
+              <Clock size={15} style={{ color: '#10b981' }} /> Withdraw Open Time
+            </div>
+            <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#10b981', letterSpacing: '0.02em' }}>
+              {formatTime12h(walletInfo?.withdraw_open_time || walletInfo?.min_withdraw || '09:00 AM')}
+            </div>
+          </div>
+
+          {/* Withdraw Close Time */}
+          <div style={{
+            backgroundColor: 'rgba(239, 68, 68, 0.12)',
+            padding: '12px 14px',
+            borderRadius: '12px',
+            border: '1px solid rgba(239, 68, 68, 0.25)'
+          }}>
+            <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.75)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: '700', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
+              <Clock size={15} style={{ color: '#ef4444' }} /> Withdraw Close Time
+            </div>
+            <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#ef4444', letterSpacing: '0.02em' }}>
+              {formatTime12h(walletInfo?.withdraw_close_time || walletInfo?.max_withdraw || '09:00 PM')}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -190,14 +316,14 @@ const Withdraw = () => {
             </button>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
-            <div onClick={() => setShowUpiModal(true)} style={{ cursor: 'pointer', background: 'rgba(255, 255, 255, 0.05)', padding: '8px 10px', borderRadius: '8px', fontSize: '0.8rem', color: 'rgba(255,255,255,0.8)' }}>
-              PhonePe: <strong style={{ color: 'var(--color-gold, #d6be66)' }}>{profile?.phonepay || 'Add ID'}</strong>
+            <div onClick={() => setShowUpiModal(true)} style={{ cursor: 'pointer', background: profile?.phonepay ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.15)', border: profile?.phonepay ? '1px solid rgba(16, 185, 129, 0.3)' : '1px dashed rgba(239, 68, 68, 0.4)', padding: '8px 10px', borderRadius: '8px', fontSize: '0.8rem', color: '#ffffff' }}>
+              PhonePe: <strong style={{ color: profile?.phonepay ? '#10b981' : '#ef4444' }}>{profile?.phonepay || '+ Add ID (Required)'}</strong>
             </div>
-            <div onClick={() => setShowUpiModal(true)} style={{ cursor: 'pointer', background: 'rgba(255, 255, 255, 0.05)', padding: '8px 10px', borderRadius: '8px', fontSize: '0.8rem', color: 'rgba(255,255,255,0.8)' }}>
-              Paytm: <strong style={{ color: 'var(--color-gold, #d6be66)' }}>{profile?.paytm || 'Add ID'}</strong>
+            <div onClick={() => setShowUpiModal(true)} style={{ cursor: 'pointer', background: profile?.paytm ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.15)', border: profile?.paytm ? '1px solid rgba(16, 185, 129, 0.3)' : '1px dashed rgba(239, 68, 68, 0.4)', padding: '8px 10px', borderRadius: '8px', fontSize: '0.8rem', color: '#ffffff' }}>
+              Paytm: <strong style={{ color: profile?.paytm ? '#10b981' : '#ef4444' }}>{profile?.paytm || '+ Add ID (Required)'}</strong>
             </div>
-            <div onClick={() => setShowUpiModal(true)} style={{ cursor: 'pointer', background: 'rgba(255, 255, 255, 0.05)', padding: '8px 10px', borderRadius: '8px', fontSize: '0.8rem', color: 'rgba(255,255,255,0.8)' }}>
-              GPay: <strong style={{ color: 'var(--color-gold, #d6be66)' }}>{profile?.googlepay || 'Add ID'}</strong>
+            <div onClick={() => setShowUpiModal(true)} style={{ cursor: 'pointer', background: profile?.googlepay ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.15)', border: profile?.googlepay ? '1px solid rgba(16, 185, 129, 0.3)' : '1px dashed rgba(239, 68, 68, 0.4)', padding: '8px 10px', borderRadius: '8px', fontSize: '0.8rem', color: '#ffffff' }}>
+              GPay: <strong style={{ color: profile?.googlepay ? '#10b981' : '#ef4444' }}>{profile?.googlepay || '+ Add ID (Required)'}</strong>
             </div>
           </div>
         </div>
@@ -208,19 +334,21 @@ const Withdraw = () => {
         <form onSubmit={handleWithdraw}>
           {/* Payment Method Select */}
           <div className="form-group">
-            <label className="form-label">Select Payment Method</label>
+            <label className="form-label">Select Payment Method *</label>
             <select
               value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
+              onChange={handleMethodChange}
               className="form-input"
               style={{ background: 'rgba(0,0,0,0.5)', height: '46px', borderRadius: '10px' }}
               required
             >
               <option value="">-- Choose Payment Method --</option>
-              <option value="Paytm">Paytm {profile?.paytm ? `(${profile.paytm})` : ''}</option>
-              <option value="PhonePe">PhonePe {profile?.phonepay ? `(${profile.phonepay})` : ''}</option>
-              <option value="Gpay">Google Pay {profile?.googlepay ? `(${profile.googlepay})` : ''}</option>
-              <option value="Bank">Bank Transfer {profile?.account_number ? `(A/C: ${profile.account_number})` : ''}</option>
+              <option value="Paytm">Paytm {profile?.paytm ? `(${profile.paytm})` : '⚠️ ID Required'}</option>
+              <option value="PhonePe">PhonePe {profile?.phonepay ? `(${profile.phonepay})` : '⚠️ ID Required'}</option>
+              <option value="Gpay">Google Pay {profile?.googlepay ? `(${profile.googlepay})` : '⚠️ ID Required'}</option>
+              {String(profile?.transfer_status ?? '1') !== '0' && (
+                <option value="Bank">Bank Transfer {profile?.account_number ? `(A/C: ${profile.account_number})` : '⚠️ Bank Details Required'}</option>
+              )}
             </select>
           </div>
 

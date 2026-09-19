@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { User, Phone, Lock, KeyRound, Mail, Gift, Eye, EyeOff, MessageCircle, ShieldCheck } from 'lucide-react';
 import api from '../utils/api';
 
-const Signup = () => {
+const Signup = ({ setAuth }) => {
   const [formData, setFormData] = useState({
     user_name: '',
     user_phone: '',
@@ -19,7 +19,7 @@ const Signup = () => {
   const [loading, setLoading] = useState(false);
   const [appName, setAppName] = useState(() => localStorage.getItem('app_name') || 'LUCKY');
   const [wpNumber, setWpNumber] = useState('');
-  const [themeColor, setThemeColor] = useState(() => localStorage.getItem('auth_theme_color') || 'gold');
+  const [referralStatus, setReferralStatus] = useState('1');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -28,6 +28,9 @@ const Signup = () => {
         if (res.data.data.app_name) {
           setAppName(res.data.data.app_name);
           localStorage.setItem('app_name', res.data.data.app_name);
+        }
+        if (res.data.data.referral_status !== undefined) {
+          setReferralStatus(String(res.data.data.referral_status));
         }
         const supportNum = res.data.data.wp_mobile || res.data.data.mobile || '';
         if (supportNum) {
@@ -80,10 +83,13 @@ const Signup = () => {
 
       const resData = response.data;
       if (resData.success === '1') {
-        setSuccess('Registered successfully! Redirecting to login page...');
-        setTimeout(() => {
-          navigate('/login');
-        }, 2000);
+        if (resData.data?.token) {
+          localStorage.setItem('token', resData.data.token);
+          localStorage.setItem('phone', resData.data.phone_number);
+          localStorage.setItem('name', resData.data.name);
+          if (setAuth) setAuth(true);
+        }
+        navigate('/');
       } else {
         setError(resData.msg || 'Registration failed');
       }
@@ -283,24 +289,26 @@ const Signup = () => {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Gift size={14} /> Referral Phone (Optional)
-                </label>
-                <div className="input-group-custom">
-                  <div className="input-icon-left">
-                    <Gift size={18} />
+              {referralStatus !== '0' && (
+                <div className="form-group">
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Gift size={14} /> Referral Phone (Optional)
+                  </label>
+                  <div className="input-group-custom">
+                    <div className="input-icon-left">
+                      <Gift size={18} />
+                    </div>
+                    <input
+                      type="tel"
+                      name="referral_phone"
+                      className="form-input form-input-icon"
+                      placeholder="Referrer number"
+                      value={formData.referral_phone}
+                      onChange={(e) => setFormData({ ...formData, referral_phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                    />
                   </div>
-                  <input
-                    type="tel"
-                    name="referral_phone"
-                    className="form-input form-input-icon"
-                    placeholder="Referrer number"
-                    value={formData.referral_phone}
-                    onChange={(e) => setFormData({ ...formData, referral_phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
-                  />
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Error & Success Messages Displayed Directly Above Action Button */}

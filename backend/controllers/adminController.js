@@ -199,6 +199,10 @@ exports.approveDeposit = async (req, res) => {
 
       await deductAdminCoins(amount);
 
+      // Trigger referral commission for deposit
+      exports.processReferralCommission(phone, 'every_deposit', amount);
+      exports.processReferralCommission(phone, 'first_deposit', amount);
+
       return res.json({ success: '1', msg: 'Fund Request approved & wallet credited successfully' });
     }
 
@@ -228,6 +232,10 @@ exports.approveDeposit = async (req, res) => {
     await db.query('UPDATE user_info SET wallet = ? WHERE phone = ?', [updatedWallet, username]);
 
     await deductAdminCoins(amount);
+
+    // Trigger referral commission for deposit
+    exports.processReferralCommission(username, 'every_deposit', amount);
+    exports.processReferralCommission(username, 'first_deposit', amount);
 
     return res.json({ success: '1', msg: 'Deposit approved and wallet updated' });
   } catch (err) {
@@ -261,34 +269,47 @@ exports.rejectDeposit = async (req, res) => {
 };
 
 // Get Pending Withdrawals (Supports pagination and search)
-exports.getPendingWithdrawals = async (req, res) => {
+exports.getWithdrawRequests = async (req, res) => {
   try {
-    const search = req.query.search ? req.query.search.trim() : '';
-    const page = parseInt(req.query.page, 10);
-    const limit = parseInt(req.query.limit, 10);
-
-    let whereClause = "WHERE status = '0' OR status = 'Pending'";
+    const { search, page, limit } = req.query;
+    let whereClause = "WHERE (w.status = '0' OR w.status = 'Pending')";
     const params = [];
 
     if (search) {
-      whereClause += ' AND (user_name LIKE ? OR mobile LIKE ? OR account_no LIKE ?)';
+      whereClause += ' AND (w.user_name LIKE ? OR w.username LIKE ? OR u.name LIKE ? OR u.account_number LIKE ?)';
       const searchTerm = `%${search}%`;
-      params.push(searchTerm, searchTerm, searchTerm);
+      params.push(searchTerm, searchTerm, searchTerm, searchTerm);
     }
+
+    const selectQuery = `
+      SELECT 
+        w.*,
+        COALESCE(u.name, w.user_name, w.username) as user_name,
+        u.bank_name,
+        u.branch_name,
+        u.account_holder_name,
+        u.account_number,
+        u.ifsc_code,
+        u.paytm,
+        u.phonepay,
+        u.googlepay
+      FROM user_withdraw_request w
+      LEFT JOIN user_info u ON (w.username = u.phone OR w.user_name = u.phone)
+    `;
 
     if (page && limit) {
       const offset = (page - 1) * limit;
-      const [countRes] = await db.query(`SELECT COUNT(*) as total FROM user_withdraw_request ${whereClause}`, params);
+      const [countRes] = await db.query(`SELECT COUNT(*) as total FROM user_withdraw_request w LEFT JOIN user_info u ON (w.username = u.phone OR w.user_name = u.phone) ${whereClause}`, params);
       const total = countRes[0]?.total || 0;
 
-      const [withdrawals] = await db.query(`SELECT * FROM user_withdraw_request ${whereClause} ORDER BY id DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
+      const [withdrawals] = await db.query(`${selectQuery} ${whereClause} ORDER BY w.id DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
       return res.json({
         success: '1',
         data: withdrawals,
         pagination: { total, page, limit, totalPages: Math.ceil(total / limit) }
       });
     } else {
-      const [withdrawals] = await db.query(`SELECT * FROM user_withdraw_request ${whereClause} ORDER BY id DESC`, params);
+      const [withdrawals] = await db.query(`${selectQuery} ${whereClause} ORDER BY w.id DESC`, params);
       return res.json({ success: '1', data: withdrawals });
     }
   } catch (err) {
@@ -296,6 +317,8 @@ exports.getPendingWithdrawals = async (req, res) => {
     return res.status(500).json({ success: '0', error: err.message });
   }
 };
+
+exports.getPendingWithdrawals = exports.getWithdrawRequests;
 
 // Approve Withdrawal Request
 exports.approveWithdrawal = async (req, res) => {
@@ -536,6 +559,257 @@ exports.declareResult = async (req, res) => {
   }
 };
 
+// Get List of Declared Results
+exports.getDeclaredResults = async (req, res) => {
+  try {
+    const { date } = req.query;
+    let sql = "SELECT * FROM result_chart";
+    const params = [];
+    if (date && date.trim() !== '') {
+      sql += " WHERE date = ?";
+      params.push(date.trim());
+    }
+    sql += " ORDER BY id DESC LIMIT 100";
+    const [results] = await db.query(sql, params);
+    return res.json({ success: '1', data: results, result: results });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: '0', error: err.message });
+  }
+};
+
+// Revert & Delete Declared Result (Deducts payouts from user wallets & deletes result entries)
+exports.deleteDeclaredResult = async (req, res) => {
+  const { game_name, date, session } = req.body;
+  if (!game_name || !date) {
+    return res.status(400).json({ success: '0', msg: 'Game name and date are required!' });
+  }
+
+  try {
+    const sess = session ? session.toLowerCase() : 'all';
+    
+    // 1. Fetch winning records for this game, date, and session
+    let winQuery = "SELECT * FROM user_winning_report WHERE TRIM(game_name) = TRIM(?) AND date = ?";
+    const winParams = [game_name, date];
+    if (sess === 'open') {
+      winQuery += " AND (session = 'open' OR game_type IN ('Open Pana', 'Single Digit'))";
+    } else if (sess === 'close') {
+      winQuery += " AND (session = 'close' OR game_type IN ('Close Pana', 'Single Digit', 'Jodi Digit', 'Half Sangam', 'Full Sangam'))";
+    }
+    const [winners] = await db.query(winQuery, winParams);
+
+    // 2. Revert wallet balances for each winner
+    const currentDateStr = new Date().toISOString().slice(0, 10);
+    const currentTimeStr = new Date().toTimeString().slice(0, 8);
+
+    for (const w of winners) {
+      const phone = w.username;
+      const winPoints = parseFloat(w.winning_points || '0');
+      if (winPoints > 0) {
+        const [users] = await db.query('SELECT wallet FROM user_info WHERE phone = ?', [phone]);
+        if (users.length > 0) {
+          const currentWallet = parseFloat(users[0].wallet || '0');
+          const newWallet = Math.max(0, currentWallet - winPoints);
+
+          await db.query('UPDATE user_info SET wallet = ? WHERE phone = ?', [newWallet, phone]);
+          await db.query(
+            'INSERT INTO wallet_history (status, date, time, amount, updated_amount, remark, phone_number) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            ['0', currentDateStr, currentTimeStr, winPoints, newWallet, `Revert Win - ${game_name} (${sess.toUpperCase()})`, phone]
+          );
+        }
+      }
+      // Remove winning record
+      await db.query('DELETE FROM user_winning_report WHERE id = ?', [w.id]);
+    }
+
+    // 3. Update or delete result_chart entry
+    const [chartRows] = await db.query('SELECT * FROM result_chart WHERE TRIM(game_name) = TRIM(?) AND date = ?', [game_name, date]);
+    if (chartRows.length > 0) {
+      const row = chartRows[0];
+      if (sess === 'open') {
+        if (!row.close_panna || row.close_panna === '') {
+          await db.query('DELETE FROM result_chart WHERE id = ?', [row.id]);
+        } else {
+          await db.query('UPDATE result_chart SET open_panna = "", open_digit = "" WHERE id = ?', [row.id]);
+        }
+      } else if (sess === 'close') {
+        if (!row.open_panna || row.open_panna === '') {
+          await db.query('DELETE FROM result_chart WHERE id = ?', [row.id]);
+        } else {
+          await db.query('UPDATE result_chart SET close_panna = "", close_digit = "" WHERE id = ?', [row.id]);
+        }
+      } else {
+        await db.query('DELETE FROM result_chart WHERE id = ?', [row.id]);
+      }
+    }
+
+    return res.json({
+      success: '1',
+      msg: `Result deleted and winnings reverted for ${winners.length} winner(s)!`
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: '0', error: err.message });
+  }
+};
+
+// Preview Winners for a potential declared result
+exports.previewWinners = async (req, res) => {
+  const { game_name, date, session, open_pana, open_result, close_pana, close_result } = req.body;
+  if (!game_name || !date || !session) {
+    return res.status(400).json({ success: '0', msg: 'Game name, date and session are required!' });
+  }
+
+  try {
+    const declaredPana = session === 'open' ? open_pana : close_pana;
+    const declaredDigit = session === 'open' ? open_result : close_result;
+
+    if (!declaredPana || !declaredDigit) {
+      return res.json({ success: '0', msg: 'Winning pana and digit are required for preview!' });
+    }
+
+    const [ratesRows] = await db.query('SELECT * FROM game_rates');
+    const getRateVal = (type) => {
+      const r = ratesRows.find(x => x.type === type);
+      if (!r) return 9; // fallback
+      return parseFloat(r.max_value) / parseFloat(r.min_value);
+    };
+
+    const potentialWinners = [];
+
+    if (session === 'open') {
+      // 1. Open Pana Bids
+      const [openPanaBids] = await db.query(
+        "SELECT b.*, u.name as user_fullname FROM user_bid_history b LEFT JOIN user_info u ON u.phone = b.username WHERE TRIM(b.game_name) = TRIM(?) AND b.date = ? AND b.open_pana = ? AND b.game_type != 'Half Sangam' AND b.game_type != 'Full Sangam'",
+        [game_name, date, declaredPana]
+      );
+      for (const b of openPanaBids) {
+        const rate = getRateVal('Open Pana') || getRateVal('Single Pana');
+        const points = parseInt(b.points_action, 10);
+        potentialWinners.push({ ...b, winType: 'Open Pana', rate, winAmount: Math.round(points * rate) });
+      }
+
+      // 2. Open Single Digit Bids
+      const [openDigitBids] = await db.query(
+        "SELECT b.*, u.name as user_fullname FROM user_bid_history b LEFT JOIN user_info u ON u.phone = b.username WHERE TRIM(b.game_name) = TRIM(?) AND b.date = ? AND b.open_digit = ? AND b.close_digit = 'NA' AND b.game_type = 'Single Digit'",
+        [game_name, date, declaredDigit]
+      );
+      for (const b of openDigitBids) {
+        const rate = getRateVal('Single Digit');
+        const points = parseInt(b.points_action, 10);
+        potentialWinners.push({ ...b, winType: 'Single Digit', rate, winAmount: Math.round(points * rate) });
+      }
+    } else {
+      // 1. Close Pana Bids
+      const [closePanaBids] = await db.query(
+        "SELECT b.*, u.name as user_fullname FROM user_bid_history b LEFT JOIN user_info u ON u.phone = b.username WHERE TRIM(b.game_name) = TRIM(?) AND b.date = ? AND b.close_pana = ? AND b.game_type != 'Half Sangam' AND b.game_type != 'Full Sangam'",
+        [game_name, date, declaredPana]
+      );
+      for (const b of closePanaBids) {
+        const rate = getRateVal('Close Pana') || getRateVal('Single Pana');
+        const points = parseInt(b.points_action, 10);
+        potentialWinners.push({ ...b, winType: 'Close Pana', rate, winAmount: Math.round(points * rate) });
+      }
+
+      // 2. Close Single Digit Bids
+      const [closeDigitBids] = await db.query(
+        "SELECT b.*, u.name as user_fullname FROM user_bid_history b LEFT JOIN user_info u ON u.phone = b.username WHERE TRIM(b.game_name) = TRIM(?) AND b.date = ? AND b.close_digit = ? AND b.open_digit = 'NA' AND b.game_type = 'Single Digit'",
+        [game_name, date, declaredDigit]
+      );
+      for (const b of closeDigitBids) {
+        const rate = getRateVal('Single Digit');
+        const points = parseInt(b.points_action, 10);
+        potentialWinners.push({ ...b, winType: 'Single Digit', rate, winAmount: Math.round(points * rate) });
+      }
+
+      // 3. Check Jodi and Sangam if Open is declared
+      const [[chartRow]] = await db.query('SELECT * FROM result_chart WHERE TRIM(game_name) = TRIM(?) AND date = ?', [game_name, date]);
+      if (chartRow) {
+        const openRe = chartRow.open_digit;
+        const openPa = chartRow.open_panna;
+
+        // Jodi Bids
+        const [jodiBids] = await db.query(
+          "SELECT b.*, u.name as user_fullname FROM user_bid_history b LEFT JOIN user_info u ON u.phone = b.username WHERE TRIM(b.game_name) = TRIM(?) AND b.date = ? AND b.game_type = 'Jodi Digit' AND b.open_digit = ? AND b.close_digit = ?",
+          [game_name, date, openRe, declaredDigit]
+        );
+        for (const b of jodiBids) {
+          const rate = getRateVal('Jodi Digit');
+          const points = parseInt(b.points_action, 10);
+          potentialWinners.push({ ...b, winType: 'Jodi Digit', rate, winAmount: Math.round(points * rate) });
+        }
+
+        // Half Sangam Bids
+        const [halfSangamBids] = await db.query(
+          "SELECT b.*, u.name as user_fullname FROM user_bid_history b LEFT JOIN user_info u ON u.phone = b.username WHERE TRIM(b.game_name) = TRIM(?) AND b.date = ? AND b.game_type = 'Half Sangam' AND b.open_digit = ? AND b.close_pana = ?",
+          [game_name, date, openRe, declaredPana]
+        );
+        for (const b of halfSangamBids) {
+          const rate = getRateVal('Half Sangam');
+          const points = parseInt(b.points_action, 10);
+          potentialWinners.push({ ...b, winType: 'Half Sangam', rate, winAmount: Math.round(points * rate) });
+        }
+
+        // Full Sangam Bids
+        const [fullSangamBids] = await db.query(
+          "SELECT b.*, u.name as user_fullname FROM user_bid_history b LEFT JOIN user_info u ON u.phone = b.username WHERE TRIM(b.game_name) = TRIM(?) AND b.date = ? AND b.game_type = 'Full Sangam' AND b.open_pana = ? AND b.close_pana = ?",
+          [game_name, date, openPa, declaredPana]
+        );
+        for (const b of fullSangamBids) {
+          const rate = getRateVal('Full Sangam');
+          const points = parseInt(b.points_action, 10);
+          potentialWinners.push({ ...b, winType: 'Full Sangam', rate, winAmount: Math.round(points * rate) });
+        }
+      }
+    }
+
+    const totalWinners = potentialWinners.length;
+    const totalPayout = potentialWinners.reduce((sum, item) => sum + (item.winAmount || 0), 0);
+
+    return res.json({
+      success: '1',
+      totalWinners,
+      totalPayout,
+      winners: potentialWinners
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: '0', error: err.message });
+  }
+};
+
+// Delete Bid from History (with Refund & User Wallet History generation)
+exports.deleteBidHistory = async (req, res) => {
+  try {
+    const { id } = req.body;
+    if (!id) {
+      return res.status(400).json({ success: '0', msg: 'Bid ID is required' });
+    }
+    const [bids] = await db.query('SELECT * FROM user_bid_history WHERE id = ?', [id]);
+    if (bids.length > 0) {
+      const b = bids[0];
+      const amount = parseFloat(b.points_action || b.points || '0');
+      const user = b.username || b.phone_number;
+      if (amount > 0 && user) {
+        await db.query('UPDATE user_info SET wallet = wallet + ? WHERE phone = ?', [amount, user]);
+        const [[u]] = await db.query('SELECT wallet FROM user_info WHERE phone = ?', [user]);
+        const today = new Date().toISOString().split('T')[0];
+        const time = new Date().toLocaleTimeString('en-US', { hour12: true });
+        const remarkStr = `Bid Cancelled & Refunded for ${b.game_name || ''} (${b.game_type || ''})`;
+        await db.query(
+          'INSERT INTO wallet_history (status, date, time, amount, updated_amount, remark, phone_number) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          ['1', today, time, `+${amount}`, u ? u.wallet : 0, remarkStr, user]
+        );
+      }
+    }
+    await db.query('DELETE FROM user_bid_history WHERE id = ?', [id]);
+    return res.json({ success: '1', msg: 'Bid deleted and amount refunded to user wallet history successfully' });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: '0', error: err.message });
+  }
+};
+
 // Get Admin Settings and Contacts (PHP Parity)
 exports.getSettings = async (req, res) => {
   try {
@@ -580,7 +854,9 @@ exports.updateSettings = async (req, res) => {
       how_to_play,
       withdraw_days,
       mpin_status,
-      slider_status
+      slider_status,
+      referral_status,
+      referral_type
     } = body;
 
     // Helper for bool/int values
@@ -589,6 +865,13 @@ exports.updateSettings = async (req, res) => {
       if (val === 1 || val === '1' || val === true || val === 'true') return 1;
       return 0;
     };
+
+    try {
+      await db.query(`ALTER TABLE admin_settings ADD COLUMN referral_status VARCHAR(10) DEFAULT '1'`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE admin_settings ADD COLUMN referral_type VARCHAR(50) DEFAULT 'signup'`);
+    } catch (e) {}
 
     const upiVal = (payment_upi_id !== undefined || upi_payment_id !== undefined) ? (payment_upi_id || upi_payment_id || '') : undefined;
 
@@ -619,7 +902,9 @@ exports.updateSettings = async (req, res) => {
         show_qr = COALESCE(?, show_qr),
         how_to_play = COALESCE(?, how_to_play),
         mpin_status = COALESCE(?, mpin_status),
-        slider_status = COALESCE(?, slider_status)
+        slider_status = COALESCE(?, slider_status),
+        referral_status = COALESCE(?, referral_status),
+        referral_type = COALESCE(?, referral_type)
        WHERE id = 1`,
       [
         ac_name !== undefined ? ac_name : null,
@@ -646,7 +931,9 @@ exports.updateSettings = async (req, res) => {
         parseFlag(show_qr),
         how_to_play !== undefined ? how_to_play : null,
         mpin_status !== undefined && mpin_status !== null ? String(mpin_status) : null,
-        slider_status !== undefined && slider_status !== null ? String(slider_status) : null
+        slider_status !== undefined && slider_status !== null ? String(slider_status) : null,
+        referral_status !== undefined && referral_status !== null ? String(referral_status) : null,
+        referral_type !== undefined && referral_type !== null ? String(referral_type) : null
       ]
     );
 
@@ -1416,34 +1703,103 @@ exports.getTransferReport = async (req, res) => {
   }
 };
 
-// 5. Get Withdraw Report
+// 5. Get Withdraw Report (Searches both user_withdraw_request & wallet_history with fallback)
 exports.getWithdrawalReport = async (req, res) => {
   try {
     const { date, search } = req.query;
 
-    let query = `
-      SELECT w.id, w.status, DATE_FORMAT(w.date, '%Y-%m-%d') as date, w.time, w.amount, w.updated_amount, w.remark, w.phone_number,
-             u.name as user_name, u.id as user_id
-      FROM wallet_history w
-      LEFT JOIN user_info u ON u.phone = w.phone_number
-      WHERE (w.remark LIKE '%Withdraw%' OR w.remark LIKE '%Transferred to your Account%' OR w.remark LIKE '%Withdrawal%')
-    `;
-    const params = [];
+    let reqParams = [];
+    let whereReq = " WHERE 1=1 ";
+    let whereHist = " WHERE (w.remark LIKE '%Withdraw%' OR w.remark LIKE '%Transferred to your Account%' OR w.remark LIKE '%Withdrawal%') ";
 
     if (date && date !== 'all' && date.trim() !== '') {
-      query += " AND (DATE(w.date) = ? OR w.date LIKE ?)";
-      params.push(date, `%${date}%`);
+      const parts = date.split('-');
+      let altDate = date;
+      if (parts.length === 3 && parts[0].length === 4) {
+        altDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+      whereReq += " AND (DATE(w.date) = ? OR w.date LIKE ? OR w.date LIKE ?)";
+      whereHist += " AND (DATE(w.date) = ? OR w.date LIKE ? OR w.date LIKE ?)";
+      reqParams.push(date, `%${date}%`, `%${altDate}%`);
     }
 
     if (search && search.trim() !== '') {
-      query += " AND (w.phone_number LIKE ? OR u.name LIKE ? OR w.remark LIKE ?)";
       const s = `%${search.trim()}%`;
-      params.push(s, s, s);
+      whereReq += " AND (w.username LIKE ? OR u.name LIKE ? OR u.phone LIKE ? OR w.remark LIKE ?)";
+      reqParams.push(s, s, s, s);
     }
 
-    query += ' ORDER BY w.id DESC LIMIT 500';
+    // 1. Query user_withdraw_request table
+    let queryReq = `
+      SELECT w.id, w.status, w.date, w.time, COALESCE(NULLIF(w.points, 0), w.amount, 0) as amount, w.remark,
+             COALESCE(w.username, u.phone) as phone_number, u.name as user_name, u.id as user_id
+      FROM user_withdraw_request w
+      LEFT JOIN user_info u ON (u.phone = w.username OR u.phone = w.user_name)
+      ${whereReq}
+      ORDER BY w.id DESC LIMIT 500
+    `;
 
-    const [rows] = await db.query(query, params);
+    const [reqRows] = await db.query(queryReq, reqParams);
+    let rows = reqRows || [];
+
+    // 2. Fallback to wallet_history if user_withdraw_request is empty
+    if (rows.length === 0) {
+      let walletParams = [];
+      if (date && date !== 'all' && date.trim() !== '') {
+        const parts = date.split('-');
+        let altDate = date;
+        if (parts.length === 3 && parts[0].length === 4) {
+          altDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+        walletParams.push(date, `%${date}%`, `%${altDate}%`);
+      }
+      if (search && search.trim() !== '') {
+        const s = `%${search.trim()}%`;
+        whereHist += " AND (w.phone_number LIKE ? OR u.name LIKE ? OR w.remark LIKE ?)";
+        walletParams.push(s, s, s);
+      }
+
+      let queryHist = `
+        SELECT w.id, w.status, w.date, w.time, ABS(w.amount) as amount, w.remark,
+               w.phone_number, u.name as user_name, u.id as user_id
+        FROM wallet_history w
+        LEFT JOIN user_info u ON u.phone = w.phone_number
+        ${whereHist}
+        ORDER BY w.id DESC LIMIT 500
+      `;
+      const [histRows] = await db.query(queryHist, walletParams);
+      if (histRows && histRows.length > 0) {
+        rows = histRows;
+      }
+    }
+
+    // 3. Fallback to latest withdrawals overall if date filter returned empty
+    if (rows.length === 0 && date && date !== 'all') {
+      let fallbackQuery = `
+        SELECT w.id, w.status, w.date, w.time, COALESCE(NULLIF(w.points, 0), w.amount, 0) as amount, w.remark,
+               COALESCE(w.username, u.phone) as phone_number, u.name as user_name, u.id as user_id
+        FROM user_withdraw_request w
+        LEFT JOIN user_info u ON (u.phone = w.username OR u.phone = w.user_name)
+        ORDER BY w.id DESC LIMIT 500
+      `;
+      const [fallbackRows] = await db.query(fallbackQuery);
+      if (fallbackRows && fallbackRows.length > 0) {
+        rows = fallbackRows;
+      } else {
+        let walletFallback = `
+          SELECT w.id, w.status, w.date, w.time, ABS(w.amount) as amount, w.remark,
+                 w.phone_number, u.name as user_name, u.id as user_id
+          FROM wallet_history w
+          LEFT JOIN user_info u ON u.phone = w.phone_number
+          WHERE (w.remark LIKE '%Withdraw%' OR w.remark LIKE '%Transferred to your Account%' OR w.remark LIKE '%Withdrawal%')
+          ORDER BY w.id DESC LIMIT 500
+        `;
+        const [wFallbackRows] = await db.query(walletFallback);
+        if (wFallbackRows && wFallbackRows.length > 0) {
+          rows = wFallbackRows;
+        }
+      }
+    }
 
     let totalAmount = 0;
     const data = rows.map((r, index) => {
@@ -1453,12 +1809,13 @@ exports.getWithdrawalReport = async (req, res) => {
         sno: index + 1,
         id: r.id,
         user_name: r.user_name || 'N/A',
-        phone_number: r.phone_number,
+        phone_number: r.phone_number || 'N/A',
         user_id: r.user_id,
         amount: amt,
         date: r.date,
         time: r.time,
-        remark: r.remark
+        remark: r.remark,
+        status: r.status
       };
     });
 
@@ -1624,7 +1981,7 @@ exports.getBidRevertList = async (req, res) => {
   }
 };
 
-// 5. Execute Bid Revert & Refund All (PHP delete/bid-revert.php parity)
+// 5. Execute Bid Revert & Refund All (PHP delete/bid-revert.php parity with user history generation)
 exports.executeBidRevert = async (req, res) => {
   try {
     const { date, game_name } = req.body;
@@ -1641,21 +1998,29 @@ exports.executeBidRevert = async (req, res) => {
       return res.json({ success: '0', msg: 'No bids found to revert for this game and date' });
     }
 
-    // Refund points to each user
+    const today = new Date().toISOString().split('T')[0];
+    const time = new Date().toLocaleTimeString('en-US', { hour12: true });
+
+    // Refund points to each user & generate user-side wallet history
     for (const b of bids) {
-      const amount = parseFloat(b.points_action || '0');
-      const user = b.username;
+      const amount = parseFloat(b.points_action || b.points || '0');
+      const user = b.username || b.phone_number;
       if (amount > 0 && user) {
         await db.query('UPDATE user_info SET wallet = wallet + ? WHERE phone = ?', [amount, user]);
+        const [[u]] = await db.query('SELECT wallet FROM user_info WHERE phone = ?', [user]);
+        const newWallet = u ? u.wallet : 0;
+        const remarkStr = `Bid Reverted Refund for ${game_name} (${b.game_type || ''})`;
+        await db.query(
+          'INSERT INTO wallet_history (status, date, time, amount, updated_amount, remark, phone_number) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          ['1', today, time, `+${amount}`, newWallet, remarkStr, user]
+        );
       }
     }
 
-    // Delete wallet debits and bid records
-    const remark = `Bid Placed For ${game_name}`;
-    await db.query('DELETE FROM wallet_history WHERE date = ? AND remark LIKE ?', [date, `%${remark}%`]);
+    // Delete bid records
     await db.query('DELETE FROM user_bid_history WHERE game_name = ? AND date = ?', [game_name, date]);
 
-    return res.json({ success: '1', msg: 'Bids Reverted & Refunded Successfully!', count: bids.length });
+    return res.json({ success: '1', msg: 'Bids Reverted & Refunded Successfully! User wallet history generated.', count: bids.length });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ success: '0', error: err.message });
@@ -1722,7 +2087,8 @@ function formatTimeTo12Hour(timeStr) {
 exports.getAdminGamesList = async (req, res) => {
   try {
     const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    const todayDayName = daysOfWeek[new Date().getDay()];
+    const nowIST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+    const todayDayName = daysOfWeek[nowIST.getDay()];
 
     const [games] = await db.query(
       `SELECT * FROM game_time WHERE day = ? GROUP BY game ORDER BY id ASC`,
@@ -1732,38 +2098,39 @@ exports.getAdminGamesList = async (req, res) => {
     const [settings] = await db.query('SELECT market_open_time FROM admin_settings LIMIT 1');
     const marketOpenTimeStr = settings.length > 0 ? settings[0].market_open_time : '00:00';
 
-    const now = new Date();
-    const parseTime = (timeStr) => {
-      if (!timeStr) return 0;
-      const parts = timeStr.trim().split(' ');
-      if (parts.length < 2) return 0;
-      const [hm, modifier] = parts;
-      let [hours, minutes] = hm.split(':').map(Number);
-      if (modifier.toLowerCase() === 'pm' && hours < 12) hours += 12;
-      if (modifier.toLowerCase() === 'am' && hours === 12) hours = 0;
-      const d = new Date(now);
+    const parseTimeToDate = (timeStr) => {
+      if (!timeStr) return null;
+      const clean = String(timeStr).trim().toLowerCase();
+      const match = clean.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)?$/);
+      if (!match) return null;
+      let hours = parseInt(match[1], 10);
+      const minutes = parseInt(match[2], 10);
+      const modifier = match[4];
+      if (modifier === 'pm' && hours < 12) hours += 12;
+      else if (modifier === 'am' && hours === 12) hours = 0;
+      const d = new Date(nowIST);
       d.setHours(hours, minutes, 0, 0);
-      return d.getTime();
+      return d;
     };
 
-    const parseOpenSettingTime = (str) => {
-      if (!str) return 0;
-      const [hours, minutes] = str.split(':').map(Number);
-      const d = new Date(now);
-      d.setHours(hours || 0, minutes || 0, 0, 0);
-      return d.getTime();
-    };
-
-    const currentTimeMs = now.getTime();
-    const startTimeMs = parseOpenSettingTime(marketOpenTimeStr);
+    const startTimeObj = parseTimeToDate(marketOpenTimeStr && marketOpenTimeStr !== '00:00:00' ? marketOpenTimeStr : '05:00 am');
 
     const formattedGames = games.map((g) => {
-      const openTimeMs = parseTime(g.open_time);
-      const closeTimeMs = parseTime(g.close_time);
+      const openTimeObj = parseTimeToDate(g.open_time);
+      const closeTimeObj = parseTimeToDate(g.close_time);
       const isStatusInactive = g.status === '0' || g.status === 0;
 
+      if (openTimeObj && closeTimeObj && closeTimeObj < openTimeObj) {
+        if (nowIST >= openTimeObj) {
+          closeTimeObj.setDate(closeTimeObj.getDate() + 1);
+        } else {
+          openTimeObj.setDate(openTimeObj.setDate() - 1);
+        }
+      }
+
       let isMarketClosed = false;
-      if (currentTimeMs < startTimeMs || (currentTimeMs > openTimeMs && currentTimeMs > closeTimeMs) || isStatusInactive) {
+      const isWithinWindow = (startTimeObj ? nowIST >= startTimeObj : true) && (closeTimeObj ? nowIST <= closeTimeObj : true);
+      if (!isWithinWindow || isStatusInactive) {
         isMarketClosed = true;
       }
 
@@ -2043,6 +2410,72 @@ exports.adjustUserWallet = async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ success: '0', error: err.message });
+  }
+};
+
+// Helper to process referral commission for various triggers (signup, first_deposit, every_deposit, first_bet, every_bet)
+exports.processReferralCommission = async (userPhone, triggerType, triggerAmount) => {
+  try {
+    if (!userPhone) return;
+    const [[user]] = await db.query('SELECT referred_by_phone FROM user_info WHERE phone = ? LIMIT 1', [userPhone]);
+    if (!user || !user.referred_by_phone) return;
+
+    const referrerPhone = String(user.referred_by_phone).trim();
+    if (!referrerPhone || referrerPhone === String(userPhone)) return;
+
+    const [[settings]] = await db.query('SELECT referral_status, referral_type, referral_commission FROM admin_settings WHERE id = 1');
+    if (!settings) return;
+
+    const rStatus = String(settings.referral_status ?? '1');
+    const rType = settings.referral_type || 'signup';
+    const rCommValue = parseFloat(settings.referral_commission || '0');
+
+    if (rStatus !== '1' || rCommValue <= 0) return;
+
+    let isEligible = false;
+    if (rType === triggerType) {
+      if (rType === 'first_deposit') {
+        const [[{ count }]] = await db.query("SELECT COUNT(*) as count FROM user_fund_request WHERE username = ? AND status = '1'", [userPhone]);
+        if (count <= 1) isEligible = true;
+      } else if (rType === 'first_bet') {
+        const [[{ count }]] = await db.query("SELECT COUNT(*) as count FROM user_bid_history WHERE (username = ? OR phone_number = ?)", [userPhone, userPhone]);
+        if (count <= 1) isEligible = true;
+      } else if (rType === 'every_deposit' || rType === 'every_bet' || rType === 'signup') {
+        isEligible = true;
+      }
+    }
+
+    if (!isEligible) return;
+
+    let commissionAmt = 0;
+    if (rType === 'signup') {
+      commissionAmt = rCommValue;
+    } else {
+      commissionAmt = (parseFloat(triggerAmount || 0) * rCommValue) / 100;
+    }
+
+    commissionAmt = Math.round(commissionAmt * 100) / 100;
+    if (commissionAmt <= 0) return;
+
+    await db.query('UPDATE user_info SET wallet = wallet + ? WHERE phone = ?', [commissionAmt, referrerPhone]);
+    const [[refU]] = await db.query('SELECT wallet FROM user_info WHERE phone = ?', [referrerPhone]);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const timeStr = new Date().toTimeString().slice(0, 8);
+    const remarkStr = `Referral Commission (${rType}) from ${userPhone}`;
+
+    await db.query(
+      'INSERT INTO wallet_history (status, date, time, amount, updated_amount, remark, phone_number) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      ['1', todayStr, timeStr, `+${commissionAmt}`, refU ? refU.wallet : 0, remarkStr, referrerPhone]
+    );
+
+    try {
+      await db.query(
+        'INSERT INTO user_referral_commission (referrer_phone, referred_user, amount, remark, date, status) VALUES (?, ?, ?, ?, ?, "1")',
+        [referrerPhone, userPhone, commissionAmt, remarkStr, todayStr]
+      );
+    } catch (e) {}
+  } catch (err) {
+    console.error('Error processing referral commission:', err);
   }
 };
 

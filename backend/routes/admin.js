@@ -36,6 +36,10 @@ router.post('/reject-withdrawal', verifyAdmin, adminController.rejectWithdrawal)
 
 // Declare Result and settlement
 router.post('/declare-result', verifyAdmin, adminController.declareResult);
+router.get('/declare-result/list', verifyAdmin, adminController.getDeclaredResults);
+router.post('/declare-result/delete', verifyAdmin, adminController.deleteDeclaredResult);
+router.post('/declare-result/preview', verifyAdmin, adminController.previewWinners);
+router.post('/reports/bid-history/delete', verifyAdmin, adminController.deleteBidHistory);
 
 // System Settings Management
 router.get('/settings', verifyAdmin, adminController.getSettings);
