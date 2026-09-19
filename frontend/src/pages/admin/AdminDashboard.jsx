@@ -17,6 +17,7 @@ import WalletTab from './tabs/WalletTab';
 import NumbersTab from './tabs/NumbersTab';
 import SettingsTab from './tabs/SettingsTab';
 import CommissionTab from './tabs/CommissionTab';
+import DeclareResultTab from './tabs/DeclareResultTab';
 
 const AdminDashboard = ({ setAdminAuth }) => {
   const navigate = useNavigate();
@@ -188,6 +189,9 @@ const AdminDashboard = ({ setAdminAuth }) => {
       case 'game_names':
       case 'rates':
         return <GamesTab activeTab={activeTab} />;
+
+      case 'declare_result':
+        return <DeclareResultTab games={games} />;
 
       case 'bid_history_report':
       case 'customer_sell_report':

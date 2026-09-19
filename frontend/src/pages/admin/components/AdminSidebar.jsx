@@ -93,18 +93,15 @@ const AdminSidebar = ({
           )}
         </div>
 
-        {/* Declare Result direct link */}
-        <a
-          href="/admin/declare-result"
-          style={{
-            ...navButtonStyle(false),
-            textDecoration: 'none',
-            color: '#a6b0cf'
-          }}
+        {/* Declare Result */}
+        <button
+          type="button"
+          onClick={() => setActiveTab('declare_result')}
+          style={navButtonStyle(activeTab === 'declare_result')}
         >
           <Trophy size={18} style={{ color: '#f59e0b' }} />
           <span>Declare Result</span>
-        </a>
+        </button>
 
         {/* Reports Submenu */}
         <div>

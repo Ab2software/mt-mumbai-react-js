@@ -237,6 +237,49 @@ const SettingsTab = ({ activeTab }) => {
     );
   }
 
+  if (activeTab === 'how_to_play') {
+    return (
+      <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 18px rgba(0,0,0,0.05)', border: '1px solid #edf2f7', maxWidth: '600px' }}>
+        <h5 style={{ margin: '0 0 16px 0', color: '#556ee6', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <HelpCircle size={20} /> How To Play Rules & Video Link
+        </h5>
+        {msg && <div style={{ color: '#10b981', padding: '10px', backgroundColor: '#d1fae5', borderRadius: '6px', marginBottom: '16px' }}>{msg}</div>}
+
+        <form onSubmit={handleSaveSettings}>
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ display: 'block', fontSize: '0.84rem', color: '#495057', marginBottom: '6px' }}>How To Play Video Link (YouTube / URL)</label>
+            <input
+              type="text"
+              placeholder="https://www.youtube.com/embed/..."
+              value={settings.how_to_play_video || ''}
+              onChange={(e) => setSettings({ ...settings, how_to_play_video: e.target.value })}
+              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ced4da', fontSize: '0.9rem', boxSizing: 'border-box' }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', fontSize: '0.84rem', color: '#495057', marginBottom: '6px' }}>Game Rules & Instructions</label>
+            <textarea
+              rows={6}
+              placeholder="Enter game rules and instructions..."
+              value={settings.how_to_play_content || ''}
+              onChange={(e) => setSettings({ ...settings, how_to_play_content: e.target.value })}
+              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ced4da', fontSize: '0.9rem', boxSizing: 'border-box' }}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{ width: '100%', padding: '11px', borderRadius: '6px', border: 'none', backgroundColor: '#556ee6', color: '#fff', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer' }}
+          >
+            {loading ? 'Saving...' : 'Save How To Play Settings'}
+          </button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 18px rgba(0,0,0,0.05)', border: '1px solid #edf2f7', maxWidth: '600px' }}>
       <h5 style={{ margin: '0 0 16px 0', color: '#556ee6', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
