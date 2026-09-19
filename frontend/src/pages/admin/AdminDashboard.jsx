@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import api from '../../utils/api';
+import DataTable from '../../components/common/DataTable';
 import {
   SINGLE_DIGITS,
   JODI_DIGITS,

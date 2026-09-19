@@ -43,11 +43,46 @@ exports.getDashboardMetrics = async (req, res) => {
   }
 };
 
-// Get List of Users
+// Get List of Users (Supports pagination and search)
 exports.getUsers = async (req, res) => {
   try {
-    const [users] = await db.query('SELECT id, name, phone, password, m_pin, email, wallet, status, betting_status, transfer_status, date, referred_by_phone FROM user_info ORDER BY id DESC');
-    return res.json({ success: '1', data: users });
+    const search = req.query.search ? req.query.search.trim() : '';
+    const page = parseInt(req.query.page, 10);
+    const limit = parseInt(req.query.limit, 10);
+
+    let whereClause = '';
+    const params = [];
+
+    if (search) {
+      whereClause = 'WHERE name LIKE ? OR phone LIKE ? OR email LIKE ?';
+      const searchTerm = `%${search}%`;
+      params.push(searchTerm, searchTerm, searchTerm);
+    }
+
+    if (page && limit) {
+      const offset = (page - 1) * limit;
+      const [countRes] = await db.query(`SELECT COUNT(*) as total FROM user_info ${whereClause}`, params);
+      const total = countRes[0]?.total || 0;
+
+      const [users] = await db.query(
+        `SELECT id, name, phone, password, m_pin, email, wallet, status, betting_status, transfer_status, date, referred_by_phone FROM user_info ${whereClause} ORDER BY id DESC LIMIT ? OFFSET ?`,
+        [...params, limit, offset]
+      );
+
+      return res.json({
+        success: '1',
+        data: users,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit)
+        }
+      });
+    } else {
+      const [users] = await db.query(`SELECT id, name, phone, password, m_pin, email, wallet, status, betting_status, transfer_status, date, referred_by_phone FROM user_info ${whereClause} ORDER BY id DESC`, params);
+      return res.json({ success: '1', data: users, total: users.length });
+    }
   } catch (err) {
     console.error(err);
     return res.status(500).json({ success: '0', error: err.message });
@@ -102,11 +137,37 @@ exports.updateUser = async (req, res) => {
   }
 };
 
-// Get Pending Deposits
+// Get Pending Deposits (Supports pagination and search)
 exports.getPendingDeposits = async (req, res) => {
   try {
-    const [deposits] = await db.query("SELECT * FROM user_auto_deposite WHERE status = '0' ORDER BY id DESC");
-    return res.json({ success: '1', data: deposits });
+    const search = req.query.search ? req.query.search.trim() : '';
+    const page = parseInt(req.query.page, 10);
+    const limit = parseInt(req.query.limit, 10);
+
+    let whereClause = "WHERE status = '0'";
+    const params = [];
+
+    if (search) {
+      whereClause += ' AND (username LIKE ? OR txn_id LIKE ? OR utr_id LIKE ?)';
+      const searchTerm = `%${search}%`;
+      params.push(searchTerm, searchTerm, searchTerm);
+    }
+
+    if (page && limit) {
+      const offset = (page - 1) * limit;
+      const [countRes] = await db.query(`SELECT COUNT(*) as total FROM user_auto_deposite ${whereClause}`, params);
+      const total = countRes[0]?.total || 0;
+
+      const [deposits] = await db.query(`SELECT * FROM user_auto_deposite ${whereClause} ORDER BY id DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
+      return res.json({
+        success: '1',
+        data: deposits,
+        pagination: { total, page, limit, totalPages: Math.ceil(total / limit) }
+      });
+    } else {
+      const [deposits] = await db.query(`SELECT * FROM user_auto_deposite ${whereClause} ORDER BY id DESC`, params);
+      return res.json({ success: '1', data: deposits });
+    }
   } catch (err) {
     console.error(err);
     return res.status(500).json({ success: '0', error: err.message });
@@ -130,92 +191,106 @@ exports.approveDeposit = async (req, res) => {
         return res.json({ success: '0', msg: 'User not found for this fund request' });
       }
 
+      await db.query("UPDATE user_fund_request SET status = '1' WHERE id = ?", [depositId]);
+
       const currentWallet = parseFloat(users[0].wallet || '0');
       const updatedWallet = currentWallet + amount;
-
       await db.query('UPDATE user_info SET wallet = ? WHERE phone = ?', [updatedWallet, phone]);
+
       await deductAdminCoins(amount);
-      const currentDateStr = new Date().toISOString().slice(0, 10);
-      const currentTimeStr = new Date().toTimeString().slice(0, 8);
-      const remark = 'Points Added By Admin ';
 
-      await db.query(
-        'INSERT INTO wallet_history (status, date, time, amount, updated_amount, remark, phone_number) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        ['1', currentDateStr, currentTimeStr, amount, updatedWallet, remark, phone]
-      );
-
-      await db.query("UPDATE user_fund_request SET status = '1' WHERE id = ?", [depositId]);
-      return res.json({ success: '1', msg: 'Fund request approved and wallet credited successfully' });
+      return res.json({ success: '1', msg: 'Fund Request approved & wallet credited successfully' });
     }
 
-    // Otherwise check user_auto_deposite
-    const [deposits] = await db.query('SELECT * FROM user_auto_deposite WHERE id = ? AND status = 0', [depositId]);
+    // Check user_auto_deposite
+    const [deposits] = await db.query('SELECT * FROM user_auto_deposite WHERE id = ?', [depositId]);
     if (deposits.length === 0) {
-      return res.json({ success: '0', msg: 'Deposit request not found or already processed' });
+      return res.json({ success: '0', msg: 'Deposit request not found' });
     }
 
-    const dep = deposits[0];
-    const phone = dep.username;
-    const amount = parseFloat(dep.amount);
+    const deposit = deposits[0];
+    if (deposit.status === '1') {
+      return res.json({ success: '0', msg: 'Deposit request already approved' });
+    }
 
-    const [users] = await db.query('SELECT wallet FROM user_info WHERE phone = ?', [phone]);
+    const username = deposit.username;
+    const amount = parseFloat(deposit.amount || 0);
+
+    const [users] = await db.query('SELECT wallet FROM user_info WHERE phone = ?', [username]);
     if (users.length === 0) {
-      return res.json({ success: '0', msg: 'User not found for this deposit' });
+      return res.json({ success: '0', msg: 'User not found' });
     }
+
+    await db.query("UPDATE user_auto_deposite SET status = '1' WHERE id = ?", [depositId]);
 
     const currentWallet = parseFloat(users[0].wallet || '0');
     const updatedWallet = currentWallet + amount;
+    await db.query('UPDATE user_info SET wallet = ? WHERE phone = ?', [updatedWallet, username]);
 
-    // Begin updates
-    await db.query('UPDATE user_info SET wallet = ? WHERE phone = ?', [updatedWallet, phone]);
     await deductAdminCoins(amount);
-    
-    const currentDateStr = new Date().toISOString().slice(0, 10);
-    const currentTimeStr = new Date().toTimeString().slice(0, 8);
-    const remark = `Points Added By UPI Requested on ${dep.txt_date || currentDateStr}`;
 
-    await db.query(
-      'INSERT INTO wallet_history (status, date, time, amount, updated_amount, remark, phone_number) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      ['1', currentDateStr, currentTimeStr, amount, updatedWallet, remark, phone]
-    );
-
-    // Update auto deposit request status to '1' (approved)
-    await db.query("UPDATE user_auto_deposite SET status = '1' WHERE id = ?", [depositId]);
-
-    // Update matching user_fund_request status if any
-    await db.query("UPDATE user_fund_request SET status = '1' WHERE username = ? AND amount = ? AND status = '0' LIMIT 1", [phone, amount]);
-
-    return res.json({ success: '1', msg: 'Deposit request approved and wallet credited successfully' });
+    return res.json({ success: '1', msg: 'Deposit approved and wallet updated' });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ success: '0', error: err.message });
   }
 };
 
-// Reject Deposit Request (handles both user_fund_request and user_auto_deposite)
+// Reject Deposit Request
 exports.rejectDeposit = async (req, res) => {
   const depositId = req.body.depositId || req.body.requestId || req.body.id;
 
   try {
-    const [fundRes] = await db.query("UPDATE user_fund_request SET status = '-1' WHERE id = ?", [depositId]);
-    const [depRes] = await db.query("UPDATE user_auto_deposite SET status = '-1' WHERE id = ?", [depositId]);
+    const [funds] = await db.query('SELECT * FROM user_fund_request WHERE id = ?', [depositId]);
+    if (funds.length > 0) {
+      await db.query("UPDATE user_fund_request SET status = '2' WHERE id = ?", [depositId]);
+      return res.json({ success: '1', msg: 'Fund Request rejected' });
+    }
 
-    if (fundRes.affectedRows > 0 || depRes.affectedRows > 0) {
-      return res.json({ success: '1', msg: 'Deposit request rejected' });
-    } else {
+    const [deposits] = await db.query('SELECT * FROM user_auto_deposite WHERE id = ?', [depositId]);
+    if (deposits.length === 0) {
       return res.json({ success: '0', msg: 'Deposit request not found' });
     }
+
+    await db.query("UPDATE user_auto_deposite SET status = '2' WHERE id = ?", [depositId]);
+    return res.json({ success: '1', msg: 'Deposit request rejected' });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ success: '0', error: err.message });
   }
 };
 
-// Get Pending Withdrawals
+// Get Pending Withdrawals (Supports pagination and search)
 exports.getPendingWithdrawals = async (req, res) => {
   try {
-    const [withdrawals] = await db.query("SELECT * FROM user_withdraw_request WHERE status = '0' ORDER BY id DESC");
-    return res.json({ success: '1', data: withdrawals });
+    const search = req.query.search ? req.query.search.trim() : '';
+    const page = parseInt(req.query.page, 10);
+    const limit = parseInt(req.query.limit, 10);
+
+    let whereClause = "WHERE status = '0' OR status = 'Pending'";
+    const params = [];
+
+    if (search) {
+      whereClause += ' AND (user_name LIKE ? OR mobile LIKE ? OR account_no LIKE ?)';
+      const searchTerm = `%${search}%`;
+      params.push(searchTerm, searchTerm, searchTerm);
+    }
+
+    if (page && limit) {
+      const offset = (page - 1) * limit;
+      const [countRes] = await db.query(`SELECT COUNT(*) as total FROM user_withdraw_request ${whereClause}`, params);
+      const total = countRes[0]?.total || 0;
+
+      const [withdrawals] = await db.query(`SELECT * FROM user_withdraw_request ${whereClause} ORDER BY id DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
+      return res.json({
+        success: '1',
+        data: withdrawals,
+        pagination: { total, page, limit, totalPages: Math.ceil(total / limit) }
+      });
+    } else {
+      const [withdrawals] = await db.query(`SELECT * FROM user_withdraw_request ${whereClause} ORDER BY id DESC`, params);
+      return res.json({ success: '1', data: withdrawals });
+    }
   } catch (err) {
     console.error(err);
     return res.status(500).json({ success: '0', error: err.message });
