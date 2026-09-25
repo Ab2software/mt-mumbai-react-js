@@ -20,6 +20,7 @@ const Signup = ({ setAuth }) => {
   const [appName, setAppName] = useState(() => localStorage.getItem('app_name') || 'LUCKY');
   const [wpNumber, setWpNumber] = useState('');
   const [referralStatus, setReferralStatus] = useState('1');
+  const [themeColor, setThemeColor] = useState(() => localStorage.getItem('auth_theme_color') || 'gold');
   const navigate = useNavigate();
 
   useEffect(() => {

@@ -25,20 +25,34 @@ exports.signup = async (req, res) => {
       }
     }
 
-    // Check signup activation status
-    const [activation] = await db.query('SELECT status FROM activate_rule');
-    const status = (activation.length > 0 && activation[0].status === '1') ? '1' : '0';
+    // Check signup activation status safely
+    let status = '1';
+    try {
+      const [activation] = await db.query('SELECT status FROM activate_rule LIMIT 1');
+      if (activation.length > 0 && activation[0].status !== undefined && activation[0].status !== null) {
+        status = String(activation[0].status);
+      }
+    } catch (e) {
+      status = '1';
+    }
 
-    // Get settings like bonus
-    const [settings] = await db.query('SELECT Dragon_bonus FROM admin_settings LIMIT 1');
-    const bonus = settings.length > 0 ? settings[0].Dragon_bonus : '0';
+    // Get settings like bonus safely
+    let bonus = '0';
+    try {
+      const [settings] = await db.query('SELECT Dragon_bonus FROM admin_settings LIMIT 1');
+      if (settings.length > 0 && settings[0].Dragon_bonus !== undefined && settings[0].Dragon_bonus !== null) {
+        bonus = String(settings[0].Dragon_bonus);
+      }
+    } catch (e) {
+      bonus = '0';
+    }
 
     // Insert user
     const today = new Date().toISOString().slice(0, 19).replace('T', ' '); // YYYY-MM-DD HH:MM:SS
     const insertSql = `
       INSERT INTO user_info 
-      (user_id, name, phone, password, m_pin, email, wallet, date, status, transfer_status, phonepay, googlepay, paytm, referred_by_phone) 
-      VALUES ('', ?, ?, ?, ?, ?, ?, ?, ?, '0', '', '', '', ?)
+      (name, phone, password, m_pin, email, wallet, date, status, transfer_status, phonepay, googlepay, paytm, referred_by_phone) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, '0', '', '', '', ?)
     `;
     const [insertResult] = await db.query(insertSql, [
       user_name,
