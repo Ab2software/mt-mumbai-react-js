@@ -14,8 +14,16 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Static directory for uploaded screenshots and landing website
 const path = require('path');
+const fs = require('fs');
 app.use('/uploads', express.static(path.join(__dirname, '..', '_public_html (1)', 'uploads')));
-app.use('/landing', express.static(path.join(__dirname, '..', 'landing')));
+
+const landingDistPath = path.join(__dirname, '..', 'landing', 'dist');
+if (fs.existsSync(landingDistPath)) {
+  app.use('/landing', express.static(landingDistPath));
+} else {
+  app.use('/landing', express.static(path.join(__dirname, '..', 'landing')));
+}
+
 
 
 // Routes
