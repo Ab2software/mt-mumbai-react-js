@@ -930,6 +930,8 @@ const AdminDashboard = ({ setAdminAuth }) => {
           withdraw_open_time: settingsData.withdraw_open_time,
           withdraw_close_time: settingsData.withdraw_close_time,
           alert_message: settingsData.alert_message,
+          app_link: settingsData.app_link,
+          how_to_play: settingsData.how_to_play,
           withdraw_days: withdrawDays
         }
       }, getHeaders());
@@ -4561,6 +4563,56 @@ const AdminDashboard = ({ setAdminAuth }) => {
                         onChange={(e) => setSettingsData({ ...settingsData, alert_message: e.target.value })}
                         style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '0.88rem' }}
                       />
+                    </div>
+                  </div>
+
+                  {/* DEDICATED LANDING WEBSITE & APK DOWNLOAD CONTROLS CARD */}
+                  <div style={{
+                    backgroundColor: '#ffffff',
+                    borderRadius: '8px',
+                    padding: '24px',
+                    border: '1px solid #e2e8f0',
+                    boxShadow: '0 0.75rem 1.5rem rgba(18,38,63,.03)',
+                    marginBottom: '24px',
+                    borderLeft: '4px solid #007bff'
+                  }}>
+                    <div style={{ marginBottom: '18px', borderBottom: '1px solid #eff2f7', paddingBottom: '14px' }}>
+                      <h5 style={{ margin: 0, fontSize: '1.08rem', color: '#343a40', fontWeight: '700' }}>
+                        🌐 Landing Website & APK Controls
+                      </h5>
+                      <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: '#74788d' }}>
+                        Configure the APK Download Button Link and How to Play Website Link displayed on the public landing portal (shreematka).
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                      <div>
+                        <label style={{ fontSize: '0.84rem', fontWeight: '600', color: '#495057', display: 'block', marginBottom: '6px' }}>
+                          📲 Official APK Download Link (app_link)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="https://yourdomain.com/app.apk"
+                          value={settingsData.app_link || ''}
+                          onChange={(e) => setSettingsData({ ...settingsData, app_link: e.target.value })}
+                          style={{ width: '100%', padding: '10px 14px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '0.88rem' }}
+                        />
+                        <small style={{ color: '#6c757d', display: 'block', marginTop: '4px' }}>Controls the 'Download App' button link on landing website.</small>
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: '0.84rem', fontWeight: '600', color: '#495057', display: 'block', marginBottom: '6px' }}>
+                          ▶️ How to Play Website / Video Link (how_to_play)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="https://www.youtube.com/watch?v=... or guide URL"
+                          value={settingsData.how_to_play || ''}
+                          onChange={(e) => setSettingsData({ ...settingsData, how_to_play: e.target.value })}
+                          style={{ width: '100%', padding: '10px 14px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '0.88rem' }}
+                        />
+                        <small style={{ color: '#6c757d', display: 'block', marginTop: '4px' }}>Controls the 'How to Play' button link on landing website.</small>
+                      </div>
                     </div>
                   </div>
 

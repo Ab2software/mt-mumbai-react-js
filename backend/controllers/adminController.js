@@ -852,6 +852,7 @@ exports.updateSettings = async (req, res) => {
       show_upi,
       show_qr,
       how_to_play,
+      app_link,
       withdraw_days,
       mpin_status,
       slider_status,
@@ -871,6 +872,9 @@ exports.updateSettings = async (req, res) => {
     } catch (e) {}
     try {
       await db.query(`ALTER TABLE admin_settings ADD COLUMN referral_type VARCHAR(50) DEFAULT 'signup'`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE admin_settings ADD COLUMN app_link TEXT`);
     } catch (e) {}
 
     const upiVal = (payment_upi_id !== undefined || upi_payment_id !== undefined) ? (payment_upi_id || upi_payment_id || '') : undefined;
@@ -901,6 +905,7 @@ exports.updateSettings = async (req, res) => {
         show_upi = COALESCE(?, show_upi),
         show_qr = COALESCE(?, show_qr),
         how_to_play = COALESCE(?, how_to_play),
+        app_link = COALESCE(?, app_link),
         mpin_status = COALESCE(?, mpin_status),
         slider_status = COALESCE(?, slider_status),
         referral_status = COALESCE(?, referral_status),
@@ -930,6 +935,7 @@ exports.updateSettings = async (req, res) => {
         parseFlag(show_upi),
         parseFlag(show_qr),
         how_to_play !== undefined ? how_to_play : null,
+        app_link !== undefined ? app_link : null,
         mpin_status !== undefined && mpin_status !== null ? String(mpin_status) : null,
         slider_status !== undefined && slider_status !== null ? String(slider_status) : null,
         referral_status !== undefined && referral_status !== null ? String(referral_status) : null,

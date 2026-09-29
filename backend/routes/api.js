@@ -3,7 +3,15 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 const gameController = require('../controllers/gameController');
 const walletController = require('../controllers/walletController');
+const landingController = require('../controllers/landingController');
 const { verifyToken } = require('../middlewares/auth');
+
+// Public Landing Information & Live Results endpoints
+router.get('/landing/info', landingController.getLandingInfo);
+router.get('/landing/markets', landingController.getLandingMarkets);
+router.get('/landing/chart/:chartType/:gameName', landingController.getChartData);
+router.get('/landing/chart/:chartType', landingController.getChartData);
+
 
 // Public App Info / Branding endpoint
 router.get('/app-info', async (req, res) => {

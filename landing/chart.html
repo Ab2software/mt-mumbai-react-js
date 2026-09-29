@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Matka Panel Chart & Jodi Chart Record</title>
+  <meta name="description" content="View complete historical Panel Chart and Jodi Chart record with open panna, close panna, and jodi numbers.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .chart-page-container {
+      padding: 30px 16px;
+    }
+    .chart-header {
+      text-align: center;
+      margin-bottom: 25px;
+    }
+    .chart-header h1 {
+      font-size: 2rem;
+      color: var(--primary-gold);
+      margin-bottom: 8px;
+    }
+    .back-link {
+      display: inline-block;
+      margin-bottom: 20px;
+      color: var(--text-gold);
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .back-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <div class="container navbar">
+      <a href="index.html" class="brand-logo">
+        <span class="brand-title" id="brandTitle">SHREE MATKA</span>
+      </a>
+      <div class="nav-actions">
+        <a href="index.html" class="btn btn-outline">🏠 Home</a>
+        <a href="#" id="apkDownloadBtnHeader" class="btn btn-gold">📲 Download App</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="container chart-page-container">
+    <a href="index.html" class="back-link">← Back to Live Results</a>
+
+    <div class="chart-header">
+      <h1 id="chartPageTitle">Matka Chart</h1>
+      <p id="chartPageSubtitle" style="color: var(--text-muted);">Historical Panel & Jodi Records</p>
+    </div>
+
+    <div id="chartTableContainer" style="overflow-x: auto;">
+      <div style="text-align: center; padding: 40px; color: var(--primary-gold);">
+        Loading chart records...
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <a href="index.html" class="btn btn-outline">🏠 Live Results</a>
+    <a href="#" id="apkDownloadBtnBottom" class="btn btn-gold">📲 Download APK</a>
+  </div>
+
+  <script>
+    (function () {
+      const API_BASE = (function() {
+        if (typeof window === 'undefined') return 'http://localhost:5001/api';
+        const origin = window.location.origin || '';
+        if (origin.includes(':5001')) {
+          return '/api';
+        }
+        return 'http://localhost:5001/api';
+      })();
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const chartType = urlParams.get('type') || 'panel';
+      const gameName = urlParams.get('game') || 'KALYAN';
+
+      document.title = `${gameName} ${chartType.toUpperCase()} CHART - Shree Matka`;
+      document.getElementById('chartPageTitle').innerText = `${gameName} ${chartType === 'panel' ? 'PANEL CHART' : 'JODI CHART'}`;
+      document.getElementById('chartPageSubtitle').innerText = `Historical record from Monday to Sunday for ${gameName}`;
+
+      fetch(`${API_BASE}/landing/info`)
+        .then(res => res.json())
+        .then(d => {
+          if (d.success === '1' && d.data) {
+            if (d.data.app_name) document.getElementById('brandTitle').innerText = d.data.app_name;
+            const appLink = d.data.app_link || '#';
+            document.getElementById('apkDownloadBtnHeader').href = appLink;
+            document.getElementById('apkDownloadBtnBottom').href = appLink;
+          }
+        }).catch(e => console.error(e));
+
+      fetch(`${API_BASE}/landing/chart/${chartType}/${encodeURIComponent(gameName)}`)
+        .then(res => res.json())
+        .then(data => {
+          const container = document.getElementById('chartTableContainer');
+          if (data.success === '1' && data.weeks && data.weeks.length > 0) {
+            const dayHeaders = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            const dayKeys = [1, 2, 3, 4, 5, 6, 0];
+
+            let html = `
+              <table class="chart-table">
+                <thead>
+                  <tr>
+                    <th>Date / Week</th>
+                    ${dayHeaders.map(h => `<th>${h}</th>`).join('')}
+                  </tr>
+                </thead>
+                <tbody>
+            `;
+
+            data.weeks.forEach(w => {
+              html += `<tr><td style="font-size: 0.75rem; color: var(--text-muted); font-weight: bold;">${w.weekStart}</td>`;
+              dayKeys.forEach(dKey => {
+                const item = w.days[dKey];
+                if (item) {
+                  const jodi = item.jodi || '**';
+                  const d1 = parseInt(jodi.charAt(0), 10);
+                  const d2 = parseInt(jodi.charAt(1), 10);
+                  const isRed = (d1 === d2) || (Math.abs(d1 - d2) === 5);
+
+                  if (chartType === 'panel') {
+                    html += `
+                      <td>
+                        <span class="pana-text">${item.open_pana}</span>
+                        <span class="jodi-text ${isRed ? 'red-jodi' : ''}">${jodi}</span>
+                        <span class="pana-text">${item.close_pana}</span>
+                      </td>
+                    `;
+                  } else {
+                    html += `<td><span class="jodi-text ${isRed ? 'red-jodi' : ''}">${jodi}</span></td>`;
+                  }
+                } else {
+                  html += `<td><span class="text-muted">***</span></td>`;
+                }
+              });
+              html += `</tr>`;
+            });
+
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+          } else {
+            container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 40px;">No historical chart records found for ${gameName}.</div>`;
+          }
+        })
+        .catch(err => {
+          document.getElementById('chartTableContainer').innerHTML = `<div style="text-align: center; color: var(--accent-red); padding: 40px;">Failed to load chart data.</div>`;
+        });
+    })();
+  </script>
+</body>
+</html>

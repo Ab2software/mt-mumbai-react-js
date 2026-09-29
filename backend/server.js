@@ -12,9 +12,11 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Static directory for uploaded screenshots
+// Static directory for uploaded screenshots and landing website
 const path = require('path');
 app.use('/uploads', express.static(path.join(__dirname, '..', '_public_html (1)', 'uploads')));
+app.use('/landing', express.static(path.join(__dirname, '..', 'landing')));
+
 
 // Routes
 const apiRoutes = require('./routes/api');
