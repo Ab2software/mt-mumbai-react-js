@@ -11,6 +11,7 @@ const getOneWeekAgoStr = () => {
 const getTodayStr = () => new Date().toISOString().slice(0, 10);
 
 const BidHistory = () => {
+  const todayStr = getTodayStr();
   const [fromDate, setFromDate] = useState(getOneWeekAgoStr());
   const [toDate, setToDate] = useState(getTodayStr());
   const [history, setHistory] = useState([]);
