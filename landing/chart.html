@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Matka Panel Chart & Jodi Chart Record</title>
-  <meta name="description" content="View complete historical Panel Chart and Jodi Chart record with open panna, close panna, and jodi numbers.">
+  <meta name="description"
+    content="View complete historical Panel Chart and Jodi Chart record with open panna, close panna, and jodi numbers.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -13,15 +15,18 @@
     .chart-page-container {
       padding: 30px 16px;
     }
+
     .chart-header {
       text-align: center;
       margin-bottom: 25px;
     }
+
     .chart-header h1 {
       font-size: 2rem;
       color: var(--primary-gold);
       margin-bottom: 8px;
     }
+
     .back-link {
       display: inline-block;
       margin-bottom: 20px;
@@ -29,17 +34,19 @@
       text-decoration: none;
       font-weight: bold;
     }
+
     .back-link:hover {
       text-decoration: underline;
     }
   </style>
 </head>
+
 <body>
 
   <header class="header">
     <div class="container navbar">
       <a href="index.html" class="brand-logo">
-        <span class="brand-title" id="brandTitle">SHREE MATKA</span>
+        <span class="brand-title" id="brandTitle">GAMA567</span>
       </a>
       <div class="nav-actions">
         <a href="index.html" class="btn btn-outline">🏠 Home</a>
@@ -70,7 +77,7 @@
 
   <script>
     (function () {
-      const API_BASE = (function() {
+      const API_BASE = (function () {
         if (typeof window === 'undefined') return 'http://localhost:5001/api';
         const origin = window.location.origin || '';
         if (origin.includes(':5001')) {
@@ -83,7 +90,7 @@
       const chartType = urlParams.get('type') || 'panel';
       const gameName = urlParams.get('game') || 'KALYAN';
 
-      document.title = `${gameName} ${chartType.toUpperCase()} CHART - Shree Matka`;
+      document.title = `${gameName} ${chartType.toUpperCase()} CHART - GAMA567`;
       document.getElementById('chartPageTitle').innerText = `${gameName} ${chartType === 'panel' ? 'PANEL CHART' : 'JODI CHART'}`;
       document.getElementById('chartPageSubtitle').innerText = `Historical record from Monday to Sunday for ${gameName}`;
 
@@ -157,4 +164,5 @@
     })();
   </script>
 </body>
+
 </html>

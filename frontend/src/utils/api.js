@@ -1,18 +1,58 @@
 import axios from 'axios';
 
+const getBaseURL = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local')) {
+      return 'http://localhost:5001/api';
+    }
+    if (host.includes('airoapp.ai')) {
+      return 'https://ww7ncvv5bk.c24.airoapp.ai/api';
+    }
+    return `${window.location.origin}/api`;
+  }
+  return 'http://localhost:5001/api';
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001/api'
+  baseURL: getBaseURL()
 });
 
 api.interceptors.request.use((config) => {
-  const isAdminReq = config.url && config.url.includes('/admin');
-  const adminToken = localStorage.getItem('admin_token');
-  const userToken = localStorage.getItem('token');
-  const authToken = isAdminReq ? (adminToken || userToken) : (userToken || adminToken);
+  const url = config.url || '';
+  const isPublicAuth = url.endsWith('/login') || url.endsWith('/signup') || url.includes('/admin/login') || url.includes('/app-info');
 
-  if (authToken && !config.headers['Authorization'] && !config.headers['authorization']) {
-    config.headers['Authorization'] = `Bearer ${authToken}`;
+  if (!isPublicAuth) {
+    const isAdminReq = url.includes('/admin');
+    const adminToken = localStorage.getItem('admin_token');
+    const userToken = localStorage.getItem('token');
+    const authToken = isAdminReq ? (adminToken || userToken) : (userToken || adminToken);
+
+    if (authToken && !config.headers['Authorization'] && !config.headers['authorization']) {
+      config.headers['Authorization'] = `Bearer ${authToken}`;
+    }
   }
+
+  if (typeof window !== 'undefined') {
+    const urlParams = new URLSearchParams(window.location.search);
+    let shareToken = urlParams.get('airoShareToken');
+    if (shareToken) {
+      sessionStorage.setItem('airoShareToken', shareToken);
+    } else {
+      shareToken = sessionStorage.getItem('airoShareToken') || import.meta.env.VITE_SHARE_TOKEN || '0ojUaqrkg5uF';
+    }
+
+    if (shareToken) {
+      config.params = config.params || {};
+      if (!config.params.airoShareToken) {
+        config.params.airoShareToken = shareToken;
+      }
+    }
+  }
+
   return config;
 }, (error) => {
   return Promise.reject(error);

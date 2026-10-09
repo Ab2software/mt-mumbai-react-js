@@ -56,7 +56,8 @@ const LockScreen = ({ onUnlock, onLogout, themeColor = 'gold' }) => {
     <div style={{
       position: 'fixed',
       inset: 0,
-      zIndex: 9999,
+      zIndex: 999999,
+      pointerEvents: 'all',
       backgroundColor: '#09121f',
       backgroundImage: 'radial-gradient(circle at 50% 30%, rgba(214, 190, 102, 0.15), transparent 70%)',
       display: 'flex',

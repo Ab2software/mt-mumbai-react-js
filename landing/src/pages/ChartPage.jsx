@@ -3,21 +3,34 @@ import { Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 
 const API_BASE = (function () {
-  if (typeof window === 'undefined') return 'http://localhost:5001/api';
-  const origin = window.location.origin || '';
-  if (origin.includes(':5001')) {
-    return '/api';
+  if (import.meta.env && import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
   }
-  return 'http://localhost:5001/api';
+  if (typeof window === 'undefined') return 'http://localhost:5001/api';
+  const host = window.location.hostname || '';
+  if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local')) {
+    return 'http://localhost:5001/api';
+  }
+  if (host.includes('airoapp.ai')) {
+    return 'https://ww7ncvv5bk.c24.airoapp.ai/api';
+  }
+  return `${window.location.origin}/api`;
 })();
+
+const getApkLink = (link) => {
+  if (!link || link === '#' || link.trim() === '') {
+    return '/apk/gama-567.apk';
+  }
+  return link;
+};
 
 const ChartPage = () => {
   const [searchParams] = useSearchParams();
   const chartType = searchParams.get('type') || 'panel';
   const gameName = searchParams.get('game') || 'KALYAN';
 
-  const [appName, setAppName] = useState('SHREE MATKA');
-  const [appLink, setAppLink] = useState('#');
+  const [appName, setAppName] = useState('GAMA567');
+  const [appLink, setAppLink] = useState('/apk/gama-567.apk');
   const [weeks, setWeeks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -57,12 +70,12 @@ const ChartPage = () => {
       <header className="header">
         <div className="container navbar">
           <Link to="/" className="brand-logo">
-            <span className="brand-title">{appName}</span>
+            <img src="/img/logo.png" alt="Gama 567" style={{ height: '42px', width: 'auto', objectFit: 'contain' }} />
           </Link>
 
           <div className="nav-actions">
             <Link to="/" className="btn btn-outline">🏠 Home</Link>
-            <a href={appLink} className="btn btn-gold" download>📲 Download App</a>
+            <a href={getApkLink(appLink)} className="btn btn-gold" download="gama-567.apk">📲 Download App</a>
           </div>
         </div>
       </header>
@@ -141,7 +154,7 @@ const ChartPage = () => {
 
       <div className="bottom-nav">
         <Link to="/" className="btn btn-outline">🏠 Live Results</Link>
-        <a href={appLink} className="btn btn-gold" download>📲 Download APK</a>
+        <a href={getApkLink(appLink)} className="btn btn-gold" download="gama-567.apk">📲 Download APK</a>
       </div>
     </div>
   );

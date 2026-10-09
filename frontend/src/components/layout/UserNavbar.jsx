@@ -4,16 +4,7 @@ import { Menu, PlusCircle, Wallet, LogOut } from 'lucide-react';
 import api from '../../utils/api';
 
 const UserNavbar = ({ onOpenSidebar, wallet = '0', themeColor = 'gold', onThemeChange, onLogout }) => {
-  const [appName, setAppName] = useState(() => localStorage.getItem('app_name') || 'LUCKY');
-
-  useEffect(() => {
-    api.get('/app-info').then(res => {
-      if (res.data?.success === '1' && res.data.data?.app_name) {
-        setAppName(res.data.data.app_name);
-        localStorage.setItem('app_name', res.data.data.app_name);
-      }
-    }).catch(() => {});
-  }, []);
+  const [appName, setAppName] = useState('Gama 567');
 
   return (
     <header style={{
@@ -56,29 +47,21 @@ const UserNavbar = ({ onOpenSidebar, wallet = '0', themeColor = 'gold', onThemeC
           <Menu size={22} />
         </button>
 
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', gap: '8px' }}>
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
           <img
             src="/img/logo.png"
-            alt="Logo"
-            style={{ 
-              height: '36px', 
-              width: 'auto', 
-              maxWidth: '130px', 
-              objectFit: 'contain', 
-              filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.4))' 
+            alt="Gama 567 Logo"
+            style={{
+              height: '46px',
+              width: 'auto',
+              maxWidth: '160px',
+              objectFit: 'contain',
+              filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.5))'
             }}
             onError={(e) => {
               e.target.src = '/img/lucky-matka-logo.png';
             }}
           />
-          <span className={`auth-heading-gradient-${themeColor}`} style={{
-            fontSize: '1.2rem',
-            fontWeight: '800',
-            letterSpacing: '0.04em',
-            textTransform: 'uppercase'
-          }}>
-            {appName}
-          </span>
         </Link>
       </div>
 
@@ -89,19 +72,22 @@ const UserNavbar = ({ onOpenSidebar, wallet = '0', themeColor = 'gold', onThemeC
           style={{
             display: 'inline-flex',
             alignItems: 'center',
+            justifyContent: 'center',
             gap: '5px',
-            padding: '6px 10px',
+            height: '34px',
+            padding: '0 12px',
             borderRadius: '10px',
             background: themeColor === 'cyan' ? 'linear-gradient(135deg, #06b6d4 0%, #0284c7 100%)' : themeColor === 'crimson' ? 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)' : 'linear-gradient(135deg, #d6be66 0%, #bca54e 100%)',
             color: themeColor === 'gold' ? '#0b1a30' : '#ffffff',
             fontSize: '0.8rem',
             fontWeight: '700',
             textDecoration: 'none',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.25)'
+            boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+            boxSizing: 'border-box'
           }}
         >
           <PlusCircle size={16} />
-          <span style={{ display: 'inline-block' }}>Deposit</span>
+          <span>Deposit</span>
         </Link>
 
         <Link
@@ -109,8 +95,10 @@ const UserNavbar = ({ onOpenSidebar, wallet = '0', themeColor = 'gold', onThemeC
           style={{
             display: 'inline-flex',
             alignItems: 'center',
+            justifyContent: 'center',
             gap: '6px',
-            padding: '6px 10px',
+            height: '34px',
+            padding: '0 12px',
             borderRadius: '10px',
             backgroundColor: 'rgba(255, 255, 255, 0.08)',
             border: '1px solid rgba(255, 255, 255, 0.15)',
@@ -118,7 +106,8 @@ const UserNavbar = ({ onOpenSidebar, wallet = '0', themeColor = 'gold', onThemeC
             fontSize: '0.82rem',
             fontWeight: '800',
             textDecoration: 'none',
-            boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+            boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+            boxSizing: 'border-box'
           }}
         >
           <Wallet size={16} />

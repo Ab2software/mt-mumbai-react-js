@@ -2,14 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-// API Base configuration
 const API_BASE = (function () {
-  if (typeof window === 'undefined') return 'http://localhost:5001/api';
-  const origin = window.location.origin || '';
-  if (origin.includes(':5001')) {
-    return '/api';
+  if (import.meta.env && import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
   }
-  return 'http://localhost:5001/api';
+  if (typeof window === 'undefined') return 'http://localhost:5001/api';
+  const host = window.location.hostname || '';
+  if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local')) {
+    return 'http://localhost:5001/api';
+  }
+  if (host.includes('airoapp.ai')) {
+    return 'https://ww7ncvv5bk.c24.airoapp.ai/api';
+  }
+  return `${window.location.origin}/api`;
 })();
 
 const FALLBACK_MARKETS = [
@@ -21,11 +26,18 @@ const FALLBACK_MARKETS = [
   { id: 6, market_name: 'SUPREME NIGHT', open_time: '08:45 PM', close_time: '10:45 PM', result_display: '***-**-***', is_declared_today: false }
 ];
 
+const getApkLink = (link) => {
+  if (!link || link === '#' || link.trim() === '') {
+    return '/apk/gama-567.apk';
+  }
+  return link;
+};
+
 const LandingHome = () => {
   const navigate = useNavigate();
   const [info, setInfo] = useState({
-    app_name: 'SHREE MATKA',
-    app_link: '#',
+    app_name: 'GAMA567',
+    app_link: '/apk/gama-567.apk',
     how_to_play: '#',
     mobile: '',
     wp_mobile: '',
@@ -74,8 +86,11 @@ const LandingHome = () => {
     fetchInfo();
     fetchMarkets();
 
-    // 15-second real-time polling
-    const interval = setInterval(fetchMarkets, 15000);
+    // 15-second real-time polling for live markets & notice bar
+    const interval = setInterval(() => {
+      fetchMarkets();
+      fetchInfo();
+    }, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -164,7 +179,7 @@ const LandingHome = () => {
 
   // Open How to Play Modal
   const openHowToPlayModal = () => {
-    setModalTitle(`How to Play ${info.app_name}`);
+    setModalTitle(`How to Play GAMA 567`);
     setModalContent(
       <div style={{ padding: '10px 0' }}>
         <h3 style={{ color: 'var(--primary-gold)', marginBottom: '12px' }}>Step-by-Step Guide:</h3>
@@ -177,7 +192,7 @@ const LandingHome = () => {
         </ol>
 
         <div style={{ textAlign: 'center', marginTop: '25px' }}>
-          <a href={info.app_link || '#'} className="btn btn-gold btn-hero-lg" download>
+          <a href={getApkLink(info.app_link)} className="btn btn-gold btn-hero-lg" download="gama-567.apk">
             📲 Download App Now
           </a>
         </div>
@@ -186,7 +201,7 @@ const LandingHome = () => {
     setModalOpen(true);
   };
 
-  const wpUrl = info.wp_mobile ? `https://wa.me/${info.wp_mobile}?text=Hello%20${encodeURIComponent(info.app_name)}%20Team` : '#';
+  const wpUrl = info.wp_mobile ? `https://wa.me/${info.wp_mobile}?text=Hello%20GAMA%2056  7%20Support,%20I%20need%20help%20logging%20into%20my%20account.` : '#';
 
   const defaultRates = [
     { type: 'Single Digit', min_value: '10', max_value: '95' },
@@ -206,14 +221,14 @@ const LandingHome = () => {
       <header className="header">
         <div className="container navbar">
           <Link to="/" className="brand-logo">
-            <span className="brand-title">{info.app_name}</span>
+            <img src="/img/logo.png" alt="Gama 567" style={{ height: '42px', width: 'auto', objectFit: 'contain' }} />
           </Link>
 
           <div className="nav-actions">
             <a href={wpUrl} className="btn btn-whatsapp" target="_blank" rel="noopener noreferrer">
               💬 WhatsApp
             </a>
-            <a href={info.app_link || '#'} className="btn btn-gold" download>
+            <a href={getApkLink(info.app_link)} className="btn btn-gold" download="gama-567.apk">
               📲 Download App
             </a>
           </div>
@@ -241,7 +256,7 @@ const LandingHome = () => {
           <p className="hero-subtitle">Check real-time declared open/close results, panel charts, jodi charts, and download the official android application with 24x7 instant withdrawals.</p>
 
           <div className="hero-cta-group">
-            <a href={info.app_link || '#'} className="btn btn-gold btn-hero-lg" download>
+            <a href={getApkLink(info.app_link)} className="btn btn-gold btn-hero-lg" download="gama-567.apk">
               📲 Download Official APK
             </a>
             <button
@@ -369,7 +384,7 @@ const LandingHome = () => {
         <a href={wpUrl} className="btn btn-whatsapp" target="_blank" rel="noopener noreferrer">
           💬 WhatsApp Support
         </a>
-        <a href={info.app_link || '#'} className="btn btn-gold" download>
+        <a href={getApkLink(info.app_link)} className="btn btn-gold" download="gama-567.apk">
           📲 Download APK
         </a>
       </div>

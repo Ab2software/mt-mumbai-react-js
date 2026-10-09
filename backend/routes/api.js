@@ -13,6 +13,47 @@ router.get('/landing/chart/:chartType/:gameName', landingController.getChartData
 router.get('/landing/chart/:chartType', landingController.getChartData);
 
 
+// Health Check Endpoint (Checks Server & DB Health)
+router.get('/health', async (req, res) => {
+  const startTime = Date.now();
+  let dbStatus = 'disconnected';
+  let dbError = null;
+
+  try {
+    const db = require('../config/db');
+    await db.query('SELECT 1');
+    dbStatus = 'connected';
+  } catch (err) {
+    dbStatus = 'error';
+    dbError = err.message;
+  }
+
+  const responseTime = `${Date.now() - startTime}ms`;
+
+  const healthData = {
+    status: dbStatus === 'connected' ? 'OK' : 'DEGRADED',
+    message: dbStatus === 'connected' ? 'Server and Database are running smoothly' : 'Database connection error',
+    timestamp: new Date().toISOString(),
+    uptime: `${Math.floor(process.uptime())}s`,
+    database: {
+      status: dbStatus,
+      latency: responseTime,
+      ...(dbError && { error: dbError })
+    },
+    system: {
+      node_version: process.version,
+      memory_usage: {
+        rss: `${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB`,
+        heapTotal: `${Math.round(process.memoryUsage().heapTotal / 1024 / 1024)}MB`,
+        heapUsed: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`
+      }
+    }
+  };
+
+  const statusCode = dbStatus === 'connected' ? 200 : 503;
+  return res.status(statusCode).json(healthData);
+});
+
 // Public App Info / Branding endpoint
 router.get('/app-info', async (req, res) => {
   try {

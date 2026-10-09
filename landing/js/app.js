@@ -8,18 +8,21 @@
   'use strict';
 
   // Base API configuration (targets backend server port 5001 or relative /api)
-  const API_BASE = (function() {
+  const API_BASE = (function () {
     if (typeof window === 'undefined') return 'http://localhost:5001/api';
-    const origin = window.location.origin || '';
-    if (origin.includes(':5001')) {
-      return '/api';
+    const host = window.location.hostname || '';
+    if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local')) {
+      return 'http://localhost:5001/api';
     }
-    return 'http://localhost:5001/api';
+    if (host.includes('airoapp.ai')) {
+      return 'https://ww7ncvv5bk.c24.airoapp.ai/api';
+    }
+    return `${window.location.origin}/api`;
   })();
 
   // State
   let appState = {
-    appName: 'Shree Matka',
+    appName: 'GAMA567',
     appLink: '#',
     howToPlayLink: '#',
     mobile: '',
@@ -65,8 +68,9 @@
 
       if (data.success === '1' && data.data) {
         const info = data.data;
-        appState.appName = info.app_name || 'Shree Matka';
-        appState.appLink = info.app_link || '#';
+        appState.appName = info.app_name || 'GAMA567';
+        const rawLink = info.app_link;
+        appState.appLink = (rawLink && rawLink !== '#' && rawLink.trim() !== '') ? rawLink : '/apk/gama-567.apk';
         appState.howToPlayLink = info.how_to_play || '#';
         appState.mobile = info.mobile || '';
         appState.wpMobile = info.wp_mobile || info.mobile || '';
@@ -81,9 +85,7 @@
         [elements.apkDownloadBtnHeader, elements.apkDownloadBtnHero, elements.apkDownloadBtnBottom].forEach(btn => {
           if (btn) {
             btn.href = appState.appLink;
-            if (appState.appLink && appState.appLink !== '#') {
-              btn.setAttribute('download', '');
-            }
+            btn.setAttribute('download', 'gama-567.apk');
           }
         });
 

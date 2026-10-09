@@ -40,11 +40,15 @@ const UserLayout = ({ children, setAuth }) => {
         return;
       }
 
-      const currentMpinStatus = appInfo.mpin_status || walletRes?.data?.data?.mpin_status || '1';
+      const currentMpinStatus = (appInfo.mpin_status !== undefined && appInfo.mpin_status !== null)
+        ? String(appInfo.mpin_status)
+        : (walletRes?.data?.data?.mpin_status !== undefined && walletRes?.data?.data?.mpin_status !== null)
+          ? String(walletRes?.data?.data?.mpin_status)
+          : '1';
       setMpinStatus(currentMpinStatus);
 
       setUserData({
-        name: prof.name || localStorage.getItem('name') || 'Lucky Player',
+        name: prof.name || localStorage.getItem('name') || 'Gama Player',
         phone_number: prof.phone_number || prof.phone || localStorage.getItem('phone') || '',
         phone: prof.phone || localStorage.getItem('phone') || '',
         email: prof.email || '',
@@ -73,24 +77,40 @@ const UserLayout = ({ children, setAuth }) => {
       setThemeColor(localStorage.getItem('auth_theme_color') || 'gold');
     };
 
-    const handleScreenOff = () => {
+    const handleLockTrigger = () => {
+      sessionStorage.removeItem('mpin_unlocked');
+      setIsLocked(true);
+    };
+
+    const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
-        sessionStorage.removeItem('mpin_unlocked');
-        setIsLocked(true);
+        handleLockTrigger();
       }
     };
 
     window.addEventListener('storage', onThemeChange);
-    document.addEventListener('visibilitychange', handleScreenOff);
-    window.addEventListener('pagehide', handleScreenOff);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handleLockTrigger);
 
     return () => {
       clearInterval(interval);
       window.removeEventListener('storage', onThemeChange);
-      document.removeEventListener('visibilitychange', handleScreenOff);
-      window.removeEventListener('pagehide', handleScreenOff);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handleLockTrigger);
     };
   }, []);
+
+  // Lock body scroll when LockScreen is active
+  useEffect(() => {
+    if (mpinStatus === '1' && isLocked) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mpinStatus, isLocked]);
 
   const changeTheme = (newColor) => {
     setThemeColor(newColor);
@@ -98,6 +118,7 @@ const UserLayout = ({ children, setAuth }) => {
   };
 
   const handleLogout = () => {
+    sessionStorage.removeItem('mpin_unlocked');
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('name');

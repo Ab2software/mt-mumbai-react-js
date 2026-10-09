@@ -10,6 +10,17 @@ exports.signup = async (req, res) => {
   }
 
   try {
+    // Ensure missing columns exist in user_info table
+    try { await db.query(`ALTER TABLE user_info ADD COLUMN referred_by_phone VARCHAR(50) DEFAULT NULL`); } catch (e) {}
+    try { await db.query(`ALTER TABLE user_info ADD COLUMN m_pin VARCHAR(50) DEFAULT ''`); } catch (e) {}
+    try { await db.query(`ALTER TABLE user_info ADD COLUMN email VARCHAR(100) DEFAULT ''`); } catch (e) {}
+    try { await db.query(`ALTER TABLE user_info ADD COLUMN wallet VARCHAR(50) DEFAULT '0'`); } catch (e) {}
+    try { await db.query(`ALTER TABLE user_info ADD COLUMN status VARCHAR(10) DEFAULT '1'`); } catch (e) {}
+    try { await db.query(`ALTER TABLE user_info ADD COLUMN transfer_status VARCHAR(10) DEFAULT '0'`); } catch (e) {}
+    try { await db.query(`ALTER TABLE user_info ADD COLUMN phonepay VARCHAR(50) DEFAULT ''`); } catch (e) {}
+    try { await db.query(`ALTER TABLE user_info ADD COLUMN googlepay VARCHAR(50) DEFAULT ''`); } catch (e) {}
+    try { await db.query(`ALTER TABLE user_info ADD COLUMN paytm VARCHAR(50) DEFAULT ''`); } catch (e) {}
+
     // Check if phone already registered
     const [existing] = await db.query('SELECT * FROM user_info WHERE phone = ?', [user_phone]);
     if (existing.length > 0) {
@@ -19,10 +30,12 @@ exports.signup = async (req, res) => {
     // Determine referred by
     let referred_by_value = null;
     if (referral_phone && referral_phone.trim() !== '' && /^\d{10}$/.test(referral_phone) && referral_phone !== user_phone) {
-      const [refUser] = await db.query('SELECT phone FROM user_info WHERE phone = ? LIMIT 1', [referral_phone]);
-      if (refUser.length > 0) {
-        referred_by_value = referral_phone;
-      }
+      try {
+        const [refUser] = await db.query('SELECT phone FROM user_info WHERE phone = ? LIMIT 1', [referral_phone]);
+        if (refUser.length > 0) {
+          referred_by_value = referral_phone;
+        }
+      } catch (e) {}
     }
 
     // Check signup activation status safely
@@ -49,32 +62,68 @@ exports.signup = async (req, res) => {
 
     // Insert user
     const today = new Date().toISOString().slice(0, 19).replace('T', ' '); // YYYY-MM-DD HH:MM:SS
-    const insertSql = `
-      INSERT INTO user_info 
-      (name, phone, password, m_pin, email, wallet, date, status, transfer_status, phonepay, googlepay, paytm, referred_by_phone) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, '0', '', '', '', ?)
-    `;
-    const [insertResult] = await db.query(insertSql, [
-      user_name,
-      user_phone,
-      user_password,
-      user_mpin || '',
-      user_email || '',
-      bonus,
-      today,
-      status,
-      referred_by_value
-    ]);
+    let insertResult;
+    try {
+      const insertSql = `
+        INSERT INTO user_info 
+        (name, phone, password, m_pin, email, wallet, date, status, transfer_status, phonepay, googlepay, paytm, referred_by_phone) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, '0', '', '', '', ?)
+      `;
+      const [resOut] = await db.query(insertSql, [
+        user_name,
+        user_phone,
+        user_password,
+        user_mpin || '',
+        user_email || '',
+        bonus,
+        today,
+        status,
+        referred_by_value
+      ]);
+      insertResult = resOut;
+    } catch (insertErr) {
+      console.warn('Primary insert failed, attempting fallback insert:', insertErr.message);
+      const fallbackSql = `
+        INSERT INTO user_info 
+        (name, phone, password, m_pin, email, wallet, date, status, transfer_status, phonepay, googlepay, paytm) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, '0', '', '', '')
+      `;
+      const [resOut] = await db.query(fallbackSql, [
+        user_name,
+        user_phone,
+        user_password,
+        user_mpin || '',
+        user_email || '',
+        bonus,
+        today,
+        status
+      ]);
+      insertResult = resOut;
+    }
 
-    if (insertResult.affectedRows > 0) {
+    if (insertResult && insertResult.affectedRows > 0) {
       // Add wallet history entry if bonus is given
-      if (bonus !== '0') {
-        const currentDateStr = new Date().toISOString().slice(0, 10);
-        const currentTimeStr = new Date().toTimeString().slice(0, 8);
-        await db.query(
-          'INSERT INTO wallet_history (status, date, time, amount, updated_amount, remark, phone_number) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          ['1', currentDateStr, currentTimeStr, bonus, bonus, 'Welcome Bonus', user_phone]
-        );
+      if (bonus !== '0' && bonus !== 0) {
+        try {
+          await db.query(`CREATE TABLE IF NOT EXISTS wallet_history (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            status VARCHAR(10) DEFAULT '1',
+            date VARCHAR(20),
+            time VARCHAR(20),
+            amount VARCHAR(50),
+            updated_amount VARCHAR(50),
+            remark TEXT,
+            phone_number VARCHAR(50)
+          )`);
+          const currentDateStr = new Date().toISOString().slice(0, 10);
+          const currentTimeStr = new Date().toTimeString().slice(0, 8);
+          await db.query(
+            'INSERT INTO wallet_history (status, date, time, amount, updated_amount, remark, phone_number) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            ['1', currentDateStr, currentTimeStr, bonus, bonus, 'Welcome Bonus', user_phone]
+          );
+        } catch (e) {
+          console.error('Error adding wallet history bonus:', e);
+        }
       }
 
       // Trigger referral commission if referred
@@ -91,11 +140,21 @@ exports.signup = async (req, res) => {
 
       // Handle Device Token
       if (token_id) {
-        const [tokenExists] = await db.query('SELECT * FROM device_token WHERE mobile = ?', [user_phone]);
-        if (tokenExists.length > 0) {
-          await db.query('UPDATE device_token SET token_id = ? WHERE mobile = ?', [token_id, user_phone]);
-        } else {
-          await db.query('INSERT INTO device_token (mobile, token_id, status) VALUES (?, ?, ?)', [user_phone, token_id, '1']);
+        try {
+          await db.query(`CREATE TABLE IF NOT EXISTS device_token (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            mobile VARCHAR(50),
+            token_id TEXT,
+            status VARCHAR(10) DEFAULT '1'
+          )`);
+          const [tokenExists] = await db.query('SELECT * FROM device_token WHERE mobile = ?', [user_phone]);
+          if (tokenExists.length > 0) {
+            await db.query('UPDATE device_token SET token_id = ? WHERE mobile = ?', [token_id, user_phone]);
+          } else {
+            await db.query('INSERT INTO device_token (mobile, token_id, status) VALUES (?, ?, ?)', [user_phone, token_id, '1']);
+          }
+        } catch (e) {
+          console.error('Error setting device token:', e);
         }
       }
 
@@ -129,8 +188,8 @@ exports.signup = async (req, res) => {
       return res.json({ success: '0', msg: 'Some Error Occurred! Try Again Later!!' });
     }
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ success: '0', msg: 'Internal server error' });
+    console.error('Signup error:', err);
+    return res.status(500).json({ success: '0', msg: err.message || 'Internal server error', error: err.message });
   }
 };
 
@@ -193,8 +252,8 @@ exports.login = async (req, res) => {
       data: data
     });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ success: '0', data: { msg: 'Internal server error' } });
+    console.error('Login Error:', err);
+    return res.status(500).json({ success: '0', data: { msg: err.message || 'Internal server error' }, error: err.message });
   }
 };
 

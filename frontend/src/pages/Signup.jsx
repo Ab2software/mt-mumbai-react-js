@@ -17,7 +17,7 @@ const Signup = ({ setAuth }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const [appName, setAppName] = useState(() => localStorage.getItem('app_name') || 'LUCKY');
+  const [appName, setAppName] = useState('Gama 567');
   const [wpNumber, setWpNumber] = useState('');
   const [referralStatus, setReferralStatus] = useState('1');
   const [themeColor, setThemeColor] = useState(() => localStorage.getItem('auth_theme_color') || 'gold');
@@ -26,10 +26,6 @@ const Signup = ({ setAuth }) => {
   useEffect(() => {
     api.get('/app-info').then(res => {
       if (res.data?.success === '1' && res.data.data) {
-        if (res.data.data.app_name) {
-          setAppName(res.data.data.app_name);
-          localStorage.setItem('app_name', res.data.data.app_name);
-        }
         if (res.data.data.referral_status !== undefined) {
           setReferralStatus(String(res.data.data.referral_status));
         }
@@ -152,13 +148,13 @@ const Signup = ({ setAuth }) => {
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
               <img
                 src="/img/logo.png"
-                alt="Logo"
-                style={{ 
-                  height: '60px', 
-                  width: 'auto', 
-                  maxWidth: '170px', 
+                alt="Gama 567 Logo"
+                style={{
+                  height: '68px',
+                  width: 'auto',
+                  maxWidth: '210px',
                   objectFit: 'contain',
-                  filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))'
+                  filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))'
                 }}
                 onError={(e) => { e.target.src = '/img/lucky-matka-logo.png'; }}
               />

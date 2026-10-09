@@ -9,7 +9,7 @@ const Login = ({ setAuth }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [appName, setAppName] = useState(() => localStorage.getItem('app_name') || 'LUCKY');
+  const [appName, setAppName] = useState('Gama 567');
   const [wpNumber, setWpNumber] = useState('');
   const [themeColor, setThemeColor] = useState(() => localStorage.getItem('auth_theme_color') || 'gold');
   const navigate = useNavigate();
@@ -22,16 +22,12 @@ const Login = ({ setAuth }) => {
 
     api.get('/app-info').then(res => {
       if (res.data?.success === '1' && res.data.data) {
-        if (res.data.data.app_name) {
-          setAppName(res.data.data.app_name);
-          localStorage.setItem('app_name', res.data.data.app_name);
-        }
         const supportNum = res.data.data.wp_mobile || res.data.data.mobile || '';
         if (supportNum) {
           setWpNumber(supportNum);
         }
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   const handleThemeChange = (color) => {
@@ -42,7 +38,7 @@ const Login = ({ setAuth }) => {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
-    
+
     if (phone.length !== 10) {
       setError('Please enter a 10-digit phone number');
       return;
@@ -61,6 +57,7 @@ const Login = ({ setAuth }) => {
 
       const resData = response.data;
       if (resData.success === '1') {
+        sessionStorage.removeItem('mpin_unlocked');
         localStorage.setItem('token', resData.data.token);
         localStorage.setItem('phone', resData.data.phone_number);
         localStorage.setItem('name', resData.data.name);
@@ -71,16 +68,17 @@ const Login = ({ setAuth }) => {
       }
     } catch (err) {
       console.error(err);
-      setError('Wrong phone number or password');
+      const serverMsg = err.response?.data?.msg || err.response?.data?.data?.msg;
+      setError(serverMsg || 'Login failed. Please check your phone number and password.');
     } finally {
       setLoading(false);
     }
   };
 
   const cleanWpNumber = wpNumber.replace(/\D/g, '');
-  const whatsappUrl = cleanWpNumber 
-    ? `https://wa.me/${cleanWpNumber.length === 10 ? '91' + cleanWpNumber : cleanWpNumber}?text=${encodeURIComponent(`Hello ${appName} Support, I need help logging into my account.`)}`
-    : `https://wa.me/?text=${encodeURIComponent(`Hello ${appName} Support, I need help logging into my account.`)}`;
+  const whatsappUrl = cleanWpNumber
+    ? `https://wa.me/${cleanWpNumber.length === 10 ? '91' + cleanWpNumber : cleanWpNumber}?text=${encodeURIComponent(`Hello Gama 567 Support, I need help logging into my account.`)}`
+    : `https://wa.me/?text=${encodeURIComponent(`Hello Gama 567 Support, I need help logging into my account.`)}`;
 
   return (
     <div className={`auth-page-bg auth-theme-${themeColor}`}>
@@ -101,20 +99,20 @@ const Login = ({ setAuth }) => {
         {/* Theme Color Selector Pill Bar */}
         <div className="theme-selector-bar" title="Select Theme Color">
           <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)', marginRight: '4px', fontWeight: '500' }}>Theme:</span>
-          <button 
-            type="button" 
+          <button
+            type="button"
             className={`theme-pill theme-pill-gold ${themeColor === 'gold' ? 'active' : ''}`}
             onClick={() => handleThemeChange('gold')}
             title="Gold Emerald Theme"
           />
-          <button 
-            type="button" 
+          <button
+            type="button"
             className={`theme-pill theme-pill-cyan ${themeColor === 'cyan' ? 'active' : ''}`}
             onClick={() => handleThemeChange('cyan')}
             title="Cyber Cyan Theme"
           />
-          <button 
-            type="button" 
+          <button
+            type="button"
             className={`theme-pill theme-pill-crimson ${themeColor === 'crimson' ? 'active' : ''}`}
             onClick={() => handleThemeChange('crimson')}
             title="Crimson Sunset Theme"
@@ -127,19 +125,19 @@ const Login = ({ setAuth }) => {
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '14px' }}>
               <img
                 src="/img/logo.png"
-                alt="Logo"
-                style={{ 
-                  height: '64px', 
-                  width: 'auto', 
-                  maxWidth: '180px', 
+                alt="Gama 567 Logo"
+                style={{
+                  height: '72px',
+                  width: 'auto',
+                  maxWidth: '220px',
                   objectFit: 'contain',
-                  filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))'
+                  filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))'
                 }}
                 onError={(e) => { e.target.src = '/img/lucky-matka-logo.png'; }}
               />
             </div>
             <h2 className={`auth-heading-gradient-${themeColor}`} style={{ fontSize: '2rem', marginBottom: '6px', fontWeight: '800', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-              {appName}
+              Gama 567
             </h2>
             <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.92rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
               <ShieldCheck size={16} style={{ color: 'var(--color-gold)' }} /> Sign in to access your dashboard
@@ -200,10 +198,10 @@ const Login = ({ setAuth }) => {
               </div>
             )}
 
-            <button 
-              type="submit" 
-              className={`btn btn-gold btn-theme-submit-${themeColor}`} 
-              style={{ width: '100%', padding: '14px', borderRadius: '12px', fontSize: '1rem', letterSpacing: '0.05em' }} 
+            <button
+              type="submit"
+              className={`btn btn-gold btn-theme-submit-${themeColor}`}
+              style={{ width: '100%', padding: '14px', borderRadius: '12px', fontSize: '1rem', letterSpacing: '0.05em' }}
               disabled={loading}
             >
               {loading ? 'LOGGING IN...' : 'LOGIN TO ACCOUNT'}
@@ -212,10 +210,10 @@ const Login = ({ setAuth }) => {
 
           {/* WhatsApp Support Section inside Card */}
           <div style={{ marginTop: '22px', paddingTop: '18px', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
-            <a 
-              href={whatsappUrl} 
-              target="_blank" 
-              rel="noopener noreferrer" 
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               className="btn-whatsapp"
             >
               <MessageCircle size={20} fill="#ffffff" />
@@ -225,12 +223,12 @@ const Login = ({ setAuth }) => {
 
           <div style={{ marginTop: '20px', textAlign: 'center', color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.9rem' }}>
             Don't have an account?{' '}
-            <Link 
-              to="/signup" 
-              style={{ 
-                color: themeColor === 'cyan' ? '#38bdf8' : themeColor === 'crimson' ? '#fb7185' : 'var(--color-gold)', 
-                textDecoration: 'none', 
-                fontWeight: '700' 
+            <Link
+              to="/signup"
+              style={{
+                color: themeColor === 'cyan' ? '#38bdf8' : themeColor === 'crimson' ? '#fb7185' : 'var(--color-gold)',
+                textDecoration: 'none',
+                fontWeight: '700'
               }}
             >
               SignUp Here

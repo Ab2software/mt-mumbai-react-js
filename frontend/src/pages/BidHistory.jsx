@@ -213,8 +213,8 @@ const BidHistory = () => {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
             <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem' }}>
-                <Calendar size={14} /> From Date
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: 'rgba(255,255,255,0.85)' }}>
+                <Calendar size={15} style={{ color: 'var(--color-gold, #d6be66)' }} /> From Date
               </label>
               <input
                 type="date"
@@ -225,8 +225,8 @@ const BidHistory = () => {
               />
             </div>
             <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem' }}>
-                <Calendar size={14} /> To Date
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: 'rgba(255,255,255,0.85)' }}>
+                <Calendar size={15} style={{ color: 'var(--color-gold, #d6be66)' }} /> To Date
               </label>
               <input
                 type="date"

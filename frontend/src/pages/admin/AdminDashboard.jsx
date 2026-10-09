@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { 
+  Users, Gamepad2, TrendingUp, RefreshCw, Calendar, Filter, 
+  CheckCircle2, XCircle, Clock, Search, Trophy, Wallet, 
+  ArrowUpRight, ShieldCheck, Sparkles, UserCheck, UserX, Eye
+} from 'lucide-react';
 import api from '../../utils/api';
 import DataTable from '../../components/common/DataTable';
 import {
@@ -58,6 +63,38 @@ const AdminDashboard = ({ setAdminAuth }) => {
   };
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
+
+  // Mobile responsive sidebar state
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 992);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth <= 992;
+      setIsMobile(mobile);
+      if (!mobile) {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleTabClick = (tabKey) => {
+    setActiveTab(tabKey);
+    if (isMobile) {
+      setIsMobileSidebarOpen(false);
+    }
+  };
+
+  const toggleSidebar = () => {
+    if (isMobile) {
+      setIsMobileSidebarOpen(prev => !prev);
+    } else {
+      setIsDesktopSidebarCollapsed(prev => !prev);
+    }
+  };
 
   // Persist activeTab to localStorage & update URL search parameter
   useEffect(() => {
@@ -1850,20 +1887,44 @@ const AdminDashboard = ({ setAdminAuth }) => {
   });
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f4f5f8', color: '#495057', fontFamily: "'Outfit', 'Inter', -apple-system, sans-serif" }}>
+    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f4f5f8', color: '#495057', fontFamily: "'Outfit', 'Inter', -apple-system, sans-serif", position: 'relative', overflowX: 'hidden' }}>
 
-      {/* 1. Left Sidebar Navigation (Matching Image 1 & 5) */}
+      {/* Mobile Drawer Overlay Backdrop */}
+      {isMobile && isMobileSidebarOpen && (
+        <div
+          onClick={() => setIsMobileSidebarOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(4px)',
+            WebkitBackdropFilter: 'blur(4px)',
+            zIndex: 99998,
+            transition: 'opacity 0.3s ease'
+          }}
+        />
+      )}
+
+      {/* 1. Left Sidebar Navigation */}
       <div style={{
-        width: '260px',
+        width: isMobile ? '270px' : (isDesktopSidebarCollapsed ? '75px' : '260px'),
         backgroundColor: '#2a3042',
         color: '#a6b0cf',
         display: 'flex',
         flexDirection: 'column',
-        boxShadow: '2px 0 6px rgba(0,0,0,0.1)',
-        position: 'sticky',
+        boxShadow: '4px 0 15px rgba(0,0,0,0.15)',
+        position: isMobile ? 'fixed' : 'sticky',
+        left: 0,
         top: 0,
+        bottom: isMobile ? 0 : undefined,
         height: '100vh',
-        overflowY: 'auto'
+        overflowY: 'auto',
+        zIndex: isMobile ? 99999 : 100,
+        transition: 'all 0.25s ease',
+        transform: isMobile ? (isMobileSidebarOpen ? 'translateX(0)' : 'translateX(-100%)') : 'none'
       }}>
         {/* Brand Header */}
         <div style={{
@@ -1881,108 +1942,78 @@ const AdminDashboard = ({ setAdminAuth }) => {
             style={{ height: '36px', maxWidth: '140px', objectFit: 'contain' }}
             onError={(e) => { e.target.style.display = 'none'; }}
           />
-          <h3 style={{ color: '#ffffff', fontSize: '1.2rem', fontWeight: 'bold', margin: 0, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-            {adminName || 'Admin'}
-          </h3>
+          {!isDesktopSidebarCollapsed || isMobile ? (
+            <h3 style={{ color: '#ffffff', fontSize: '1.1rem', fontWeight: 'bold', margin: 0, letterSpacing: '0.04em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+              {adminName || 'Admin'}
+            </h3>
+          ) : null}
         </div>
 
         {/* Menu Items */}
         <div style={{ padding: '16px 0', display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 }}>
 
           {/* Dashboards */}
-          <div onClick={() => setActiveTab('dashboards')} style={sidebarItemStyle(activeTab === 'dashboards')}>
+          <div onClick={() => handleTabClick('dashboards')} style={sidebarItemStyle(activeTab === 'dashboards')}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span style={{ fontSize: '1.1rem' }}>🏠</span>
-              <span>Dashboards</span>
+              {(!isDesktopSidebarCollapsed || isMobile) && <span>Dashboards</span>}
             </div>
           </div>
 
           {/* User Management */}
-          <div onClick={() => setActiveTab('user_management')} style={sidebarItemStyle(activeTab === 'user_management')}>
+          <div onClick={() => handleTabClick('user_management')} style={sidebarItemStyle(activeTab === 'user_management')}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span style={{ fontSize: '1.1rem' }}>👥</span>
-              <span>User Management</span>
+              {(!isDesktopSidebarCollapsed || isMobile) && <span>User Management</span>}
             </div>
           </div>
 
           {/* Referral Report */}
-          <div onClick={() => setActiveTab('referrals')} style={sidebarItemStyle(activeTab === 'referrals')}>
+          <div onClick={() => handleTabClick('referrals')} style={sidebarItemStyle(activeTab === 'referrals')}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span style={{ fontSize: '1.1rem' }}>🔗</span>
-              <span>Referral Report</span>
+              {(!isDesktopSidebarCollapsed || isMobile) && <span>Referral Report</span>}
             </div>
           </div>
-
-          {/* User Commission (Collapsible) */}
-          {/* <div>
-            <div onClick={() => toggleMenu('commission')} style={sidebarItemStyle(activeTab.startsWith('user_commission'))}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '1.1rem' }}>💵</span>
-                <span>User Commission</span>
-              </div>
-              <span style={{ fontSize: '0.75rem' }}>{openMenus.commission ? '▾' : '▸'}</span>
-            </div>
-            {openMenus.commission && (
-              <div>
-                <div onClick={() => setActiveTab('user_commission')} style={submenuItemStyle(activeTab === 'user_commission')}>
-                  User Commission
-                </div>
-                <div onClick={() => setActiveTab('user_commission_pay_list')} style={submenuItemStyle(activeTab === 'user_commission_pay_list')}>
-                  User Commission Pay List
-                </div>
-              </div>
-            )}
-          </div> */}
 
           {/* Declare Result */}
-          <div onClick={() => setActiveTab('declare_result')} style={sidebarItemStyle(activeTab === 'declare_result')}>
+          <div onClick={() => handleTabClick('declare_result')} style={sidebarItemStyle(activeTab === 'declare_result')}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span style={{ fontSize: '1.1rem' }}>🎯</span>
-              <span>Declare Result</span>
+              {(!isDesktopSidebarCollapsed || isMobile) && <span>Declare Result</span>}
             </div>
           </div>
-
-          {/* Winning Prediction */}
-          {/* <div onClick={() => setActiveTab('winning_prediction')} style={sidebarItemStyle(activeTab === 'winning_prediction')}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '1.1rem' }}>🎯</span>
-              <span>Winning Prediction</span>
-            </div>
-          </div> */}
 
           {/* Report Management (Collapsible) */}
           <div>
             <div onClick={() => toggleMenu('reports')} style={sidebarItemStyle(activeTab.startsWith('report_'))}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span style={{ fontSize: '1.1rem' }}>📄</span>
-                <span>Report Management</span>
+                {(!isDesktopSidebarCollapsed || isMobile) && <span>Report Management</span>}
               </div>
-              <span style={{ fontSize: '0.75rem' }}>{openMenus.reports ? '▾' : '▸'}</span>
+              {(!isDesktopSidebarCollapsed || isMobile) && <span style={{ fontSize: '0.75rem' }}>{openMenus.reports ? '▾' : '▸'}</span>}
             </div>
-            {openMenus.reports && (
+            {openMenus.reports && (!isDesktopSidebarCollapsed || isMobile) && (
               <div>
-                <div onClick={() => setActiveTab('report_bid_history')} style={submenuItemStyle(activeTab === 'report_bid_history')}>
+                <div onClick={() => handleTabClick('report_bid_history')} style={submenuItemStyle(activeTab === 'report_bid_history')}>
                   Users Bid History
                 </div>
-                <div onClick={() => setActiveTab('report_sell')} style={submenuItemStyle(activeTab === 'report_sell')}>
+                <div onClick={() => handleTabClick('report_sell')} style={submenuItemStyle(activeTab === 'report_sell')}>
                   Customer Sell Report
                 </div>
-                <div onClick={() => setActiveTab('report_winning')} style={submenuItemStyle(activeTab === 'report_winning')}>
+                <div onClick={() => handleTabClick('report_winning')} style={submenuItemStyle(activeTab === 'report_winning')}>
                   Winning Report
                 </div>
-                {/* <div onClick={() => setActiveTab('report_transfer')} style={submenuItemStyle(activeTab === 'report_transfer')}>
-                  Transfer Point Report
-                </div> */}
-                <div onClick={() => setActiveTab('report_bid_win')} style={submenuItemStyle(activeTab === 'report_bid_win')}>
+                <div onClick={() => handleTabClick('report_bid_win')} style={submenuItemStyle(activeTab === 'report_bid_win')}>
                   Bid Win Report
                 </div>
-                <div onClick={() => setActiveTab('report_withdraw')} style={submenuItemStyle(activeTab === 'report_withdraw')}>
+                <div onClick={() => handleTabClick('report_withdraw')} style={submenuItemStyle(activeTab === 'report_withdraw')}>
                   Withdraw Report
                 </div>
-                <div onClick={() => setActiveTab('report_auto_deposit')} style={submenuItemStyle(activeTab === 'report_auto_deposit')}>
+                <div onClick={() => handleTabClick('report_auto_deposit')} style={submenuItemStyle(activeTab === 'report_auto_deposit')}>
                   Auto Deposit History
                 </div>
-                <div onClick={() => setActiveTab('report_add_fund')} style={submenuItemStyle(activeTab === 'report_add_fund')}>
+                <div onClick={() => handleTabClick('report_add_fund')} style={submenuItemStyle(activeTab === 'report_add_fund')}>
                   Add Fund Report
                 </div>
               </div>
@@ -1994,22 +2025,22 @@ const AdminDashboard = ({ setAdminAuth }) => {
             <div onClick={() => toggleMenu('wallet')} style={sidebarItemStyle(['deposits', 'withdrawals', 'add_fund_wallet', 'bid_revert'].includes(activeTab))}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span style={{ fontSize: '1.1rem' }}>👛</span>
-                <span>Wallet Management</span>
+                {(!isDesktopSidebarCollapsed || isMobile) && <span>Wallet Management</span>}
               </div>
-              <span style={{ fontSize: '0.75rem' }}>{openMenus.wallet ? '▾' : '▸'}</span>
+              {(!isDesktopSidebarCollapsed || isMobile) && <span style={{ fontSize: '0.75rem' }}>{openMenus.wallet ? '▾' : '▸'}</span>}
             </div>
-            {openMenus.wallet && (
+            {openMenus.wallet && (!isDesktopSidebarCollapsed || isMobile) && (
               <div>
-                <div onClick={() => setActiveTab('deposits')} style={submenuItemStyle(activeTab === 'deposits')}>
+                <div onClick={() => handleTabClick('deposits')} style={submenuItemStyle(activeTab === 'deposits')}>
                   Fund Request
                 </div>
-                <div onClick={() => setActiveTab('withdrawals')} style={submenuItemStyle(activeTab === 'withdrawals')}>
+                <div onClick={() => handleTabClick('withdrawals')} style={submenuItemStyle(activeTab === 'withdrawals')}>
                   Withdraw Request
                 </div>
-                <div onClick={() => setActiveTab('add_fund_wallet')} style={submenuItemStyle(activeTab === 'add_fund_wallet')}>
+                <div onClick={() => handleTabClick('add_fund_wallet')} style={submenuItemStyle(activeTab === 'add_fund_wallet')}>
                   Add Fund (User Wallet)
                 </div>
-                <div onClick={() => setActiveTab('bid_revert')} style={submenuItemStyle(activeTab === 'bid_revert')}>
+                <div onClick={() => handleTabClick('bid_revert')} style={submenuItemStyle(activeTab === 'bid_revert')}>
                   Bid Revert
                 </div>
               </div>
@@ -2021,16 +2052,16 @@ const AdminDashboard = ({ setAdminAuth }) => {
             <div onClick={() => toggleMenu('games')} style={sidebarItemStyle(['game_names', 'rates'].includes(activeTab))}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span style={{ fontSize: '1.1rem' }}>🎯</span>
-                <span>Games Management</span>
+                {(!isDesktopSidebarCollapsed || isMobile) && <span>Games Management</span>}
               </div>
-              <span style={{ fontSize: '0.75rem' }}>{openMenus.games ? '▾' : '▸'}</span>
+              {(!isDesktopSidebarCollapsed || isMobile) && <span style={{ fontSize: '0.75rem' }}>{openMenus.games ? '▾' : '▸'}</span>}
             </div>
-            {openMenus.games && (
+            {openMenus.games && (!isDesktopSidebarCollapsed || isMobile) && (
               <div>
-                <div onClick={() => setActiveTab('game_names')} style={submenuItemStyle(activeTab === 'game_names')}>
+                <div onClick={() => handleTabClick('game_names')} style={submenuItemStyle(activeTab === 'game_names')}>
                   Game Name
                 </div>
-                <div onClick={() => setActiveTab('rates')} style={submenuItemStyle(activeTab === 'rates')}>
+                <div onClick={() => handleTabClick('rates')} style={submenuItemStyle(activeTab === 'rates')}>
                   Game Rates
                 </div>
               </div>
@@ -2042,19 +2073,19 @@ const AdminDashboard = ({ setAdminAuth }) => {
             <div onClick={() => toggleMenu('numbers')} style={sidebarItemStyle(activeTab.startsWith('num_'))}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span style={{ fontSize: '1.1rem' }}>🎯</span>
-                <span>Game & Numbers</span>
+                {(!isDesktopSidebarCollapsed || isMobile) && <span>Game & Numbers</span>}
               </div>
-              <span style={{ fontSize: '0.75rem' }}>{openMenus.numbers ? '▾' : '▸'}</span>
+              {(!isDesktopSidebarCollapsed || isMobile) && <span style={{ fontSize: '0.75rem' }}>{openMenus.numbers ? '▾' : '▸'}</span>}
             </div>
-            {openMenus.numbers && (
+            {openMenus.numbers && (!isDesktopSidebarCollapsed || isMobile) && (
               <div>
-                <div onClick={() => setActiveTab('num_single')} style={submenuItemStyle(activeTab === 'num_single')}>Single Digit</div>
-                <div onClick={() => setActiveTab('num_jodi')} style={submenuItemStyle(activeTab === 'num_jodi')}>Jodi Digit</div>
-                <div onClick={() => setActiveTab('num_single_pana')} style={submenuItemStyle(activeTab === 'num_single_pana')}>Single Pana</div>
-                <div onClick={() => setActiveTab('num_double_pana')} style={submenuItemStyle(activeTab === 'num_double_pana')}>Double Pana</div>
-                <div onClick={() => setActiveTab('num_triple_pana')} style={submenuItemStyle(activeTab === 'num_triple_pana')}>Tripple Pana</div>
-                <div onClick={() => setActiveTab('num_half_sangam')} style={submenuItemStyle(activeTab === 'num_half_sangam')}>Half Sangam</div>
-                <div onClick={() => setActiveTab('num_full_sangam')} style={submenuItemStyle(activeTab === 'num_full_sangam')}>Full Sangam</div>
+                <div onClick={() => handleTabClick('num_single')} style={submenuItemStyle(activeTab === 'num_single')}>Single Digit</div>
+                <div onClick={() => handleTabClick('num_jodi')} style={submenuItemStyle(activeTab === 'num_jodi')}>Jodi Digit</div>
+                <div onClick={() => handleTabClick('num_single_pana')} style={submenuItemStyle(activeTab === 'num_single_pana')}>Single Pana</div>
+                <div onClick={() => handleTabClick('num_double_pana')} style={submenuItemStyle(activeTab === 'num_double_pana')}>Double Pana</div>
+                <div onClick={() => handleTabClick('num_triple_pana')} style={submenuItemStyle(activeTab === 'num_triple_pana')}>Tripple Pana</div>
+                <div onClick={() => handleTabClick('num_half_sangam')} style={submenuItemStyle(activeTab === 'num_half_sangam')}>Half Sangam</div>
+                <div onClick={() => handleTabClick('num_full_sangam')} style={submenuItemStyle(activeTab === 'num_full_sangam')}>Full Sangam</div>
               </div>
             )}
           </div>
@@ -2064,22 +2095,22 @@ const AdminDashboard = ({ setAdminAuth }) => {
             <div onClick={() => toggleMenu('settings')} style={sidebarItemStyle(['settings', 'contact_settings', 'sliders', 'how_to_play'].includes(activeTab))}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span style={{ fontSize: '1.1rem' }}>⚙️</span>
-                <span>Settings</span>
+                {(!isDesktopSidebarCollapsed || isMobile) && <span>Settings</span>}
               </div>
-              <span style={{ fontSize: '0.75rem' }}>{openMenus.settings ? '▾' : '▸'}</span>
+              {(!isDesktopSidebarCollapsed || isMobile) && <span style={{ fontSize: '0.75rem' }}>{openMenus.settings ? '▾' : '▸'}</span>}
             </div>
-            {openMenus.settings && (
+            {openMenus.settings && (!isDesktopSidebarCollapsed || isMobile) && (
               <div>
-                <div onClick={() => setActiveTab('settings')} style={submenuItemStyle(activeTab === 'settings')}>
+                <div onClick={() => handleTabClick('settings')} style={submenuItemStyle(activeTab === 'settings')}>
                   Main Settings
                 </div>
-                <div onClick={() => setActiveTab('contact_settings')} style={submenuItemStyle(activeTab === 'contact_settings')}>
+                <div onClick={() => handleTabClick('contact_settings')} style={submenuItemStyle(activeTab === 'contact_settings')}>
                   Contact Settings
                 </div>
-                <div onClick={() => setActiveTab('sliders')} style={submenuItemStyle(activeTab === 'sliders')}>
+                <div onClick={() => handleTabClick('sliders')} style={submenuItemStyle(activeTab === 'sliders')}>
                   Slider Images
                 </div>
-                <div onClick={() => setActiveTab('how_to_play')} style={submenuItemStyle(activeTab === 'how_to_play')}>
+                <div onClick={() => handleTabClick('how_to_play')} style={submenuItemStyle(activeTab === 'how_to_play')}>
                   How To Play
                 </div>
               </div>
@@ -2110,28 +2141,48 @@ const AdminDashboard = ({ setAdminAuth }) => {
       </div>
 
       {/* 2. Main Content Container */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', minWidth: 0, width: '100%', maxWidth: '100%' }}>
 
-        {/* Top Header Navbar (Matching Screenshot) */}
+        {/* Top Header Navbar */}
         <div style={{
           height: '70px',
           backgroundColor: '#2a3042',
           borderBottom: '1px solid rgba(255,255,255,0.06)',
-          padding: '0 28px',
+          padding: isMobile ? '0 12px' : '0 28px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           position: 'sticky',
           top: 0,
-          zIndex: 100
+          zIndex: 90
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            <span style={{ fontSize: '1.25rem', cursor: 'pointer', color: '#ffffff' }}>☰</span>
-            <span
-              style={{ color: '#ffffff', fontSize: '0.95rem', fontWeight: 'bold', cursor: 'pointer' }}
-              onClick={() => setActiveTab('dashboards')}
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '20px' }}>
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              aria-label="Toggle Navigation Menu"
+              style={{
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#ffffff',
+                borderRadius: '8px',
+                padding: '6px 12px',
+                cursor: 'pointer',
+                fontSize: '1.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                outline: 'none',
+                transition: 'all 0.2s ease'
+              }}
             >
-              Home
+              ☰
+            </button>
+            <span
+              style={{ color: '#ffffff', fontSize: isMobile ? '0.88rem' : '0.98rem', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}
+              onClick={() => handleTabClick('dashboards')}
+            >
+              Gama 567 Admin
             </span>
           </div>
 
@@ -2269,146 +2320,473 @@ const AdminDashboard = ({ setAdminAuth }) => {
         </div>
 
         {/* 3. Screen Views */}
-        <div style={{ padding: '24px 28px', flex: 1 }}>
+        <div style={{ padding: isMobile ? '12px 14px' : '24px 28px', flex: 1, minWidth: 0, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
 
 
 
-          {/* VIEW 1: DASHBOARDS (Matching Image 2) */}
+          {/* VIEW 1: DASHBOARDS */}
           {activeTab === 'dashboards' && (
-            <div>
-              {/* Page Title & Breadcrumb */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h4 style={{ margin: 0, fontSize: '1.15rem', color: '#495057', textTransform: 'uppercase', fontWeight: '700' }}>
-                  Dashboard
-                </h4>
-                <div style={{ fontSize: '0.8rem', color: '#74788d' }}>
-                  Dashboards / <span style={{ color: '#556ee6' }}>Dashboard</span>
+            <div style={{ animation: 'fadeIn 0.3s ease-in-out' }}>
+              {/* Header Title & Quick Action Toolbar */}
+              <div style={{
+                display: 'flex',
+                flexDirection: isMobile ? 'column' : 'row',
+                justifyContent: 'space-between',
+                alignItems: isMobile ? 'flex-start' : 'center',
+                gap: '16px',
+                marginBottom: '24px',
+                backgroundColor: '#ffffff',
+                padding: '18px 24px',
+                borderRadius: '12px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+                border: '1px solid #eff2f7'
+              }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <h4 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b', fontWeight: '800', letterSpacing: '-0.02em' }}>
+                      Dashboard Overview
+                    </h4>
+                    <span style={{
+                      backgroundColor: '#eff6ff',
+                      color: '#2563eb',
+                      padding: '3px 10px',
+                      borderRadius: '20px',
+                      fontSize: '0.72rem',
+                      fontWeight: '700',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#2563eb', display: 'inline-block' }}></span>
+                      Live Updates
+                    </span>
+                  </div>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: '#64748b' }}>
+                    Real-time platform metrics, user statistics, bid analytics & auto deposit history.
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    backgroundColor: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    color: '#475569',
+                    fontWeight: '500'
+                  }}>
+                    <Calendar size={15} style={{ color: '#64748b' }} />
+                    <span>{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      fetchAdminCoins();
+                      fetchAnkBids();
+                      fetchBidWinReport();
+                      fetchAutoDeposits();
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      backgroundColor: '#556ee6',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      fontSize: '0.82rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 12px rgba(85, 110, 230, 0.25)',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4458c8'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#556ee6'}
+                  >
+                    <RefreshCw size={14} />
+                    <span>Refresh</span>
+                  </button>
                 </div>
               </div>
 
-              {/* Grid Row 1: Left Welcome Card + Right 3 Stat Cards & Ank Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px', marginBottom: '20px' }}>
+              {/* Grid Row 1: Left Profile & Market Bid + Right Stat Cards & Single Ank Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 2.3fr', gap: '20px', marginBottom: '24px' }}>
 
                 {/* Left Column */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  
                   {/* Welcome Profile Card */}
-                  <div style={{ backgroundColor: '#ffffff', borderRadius: '8px', overflow: 'hidden', border: '1px solid #eff2f7', boxShadow: '0 0.75rem 1.5rem rgba(18,38,63,.03)' }}>
-                    <div style={{ backgroundColor: 'rgba(255, 192, 203, 0.45)', padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <h5 style={{ color: '#e53e3e', fontSize: '1.05rem', margin: '0 0 4px 0', fontWeight: '600' }}>Welcome Back !</h5>
-                        <p style={{ color: '#74788d', fontSize: '0.82rem', margin: 0 }}>Admin Dashboard</p>
+                  <div style={{
+                    backgroundColor: '#ffffff',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    border: '1px solid #eff2f7',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.04)'
+                  }}>
+                    <div style={{
+                      background: 'linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)',
+                      padding: '24px 20px',
+                      color: '#ffffff',
+                      display: 'flex',
+                      justify: 'space-between',
+                      alignItems: 'center',
+                      position: 'relative',
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{ zIndex: 2 }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.72rem', fontWeight: '600', marginBottom: '8px' }}>
+                          <Sparkles size={12} /> Console
+                        </div>
+                        <h5 style={{ color: '#ffffff', fontSize: '1.15rem', margin: '0 0 4px 0', fontWeight: '700' }}>
+                          Welcome Back!
+                        </h5>
+                        <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.8rem', margin: 0 }}>
+                          Gama 567 Admin Console
+                        </p>
                       </div>
-                      <img src="/assets/images/profile-img.png" alt="" style={{ width: '90px', height: 'auto' }} />
+                      <div style={{
+                        width: '64px',
+                        height: '64px',
+                        borderRadius: '50%',
+                        backgroundColor: 'rgba(255,255,255,0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justify: 'center',
+                        fontSize: '1.8rem',
+                        backdropFilter: 'blur(4px)',
+                        border: '2px solid rgba(255,255,255,0.3)',
+                        zIndex: 2
+                      }}>
+                        👑
+                      </div>
                     </div>
-                    <div style={{ padding: '16px 20px', backgroundColor: 'rgba(255, 192, 203, 0.15)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
-                        <img src="/assets/images/avatar-1.jpg" alt="" style={{ width: '48px', height: '48px', borderRadius: '50%', border: '2px solid #fff' }} />
+
+                    <div style={{ padding: '20px', backgroundColor: '#ffffff' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '18px' }}>
+                        <div style={{
+                          width: '46px',
+                          height: '46px',
+                          borderRadius: '50%',
+                          backgroundColor: '#eff6ff',
+                          color: '#2563eb',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justify: 'center',
+                          fontWeight: '800',
+                          fontSize: '1.2rem',
+                          border: '2px solid #3b82f6',
+                          boxShadow: '0 2px 8px rgba(37, 99, 235, 0.15)'
+                        }}>
+                          {(adminName || 'Admin').charAt(0).toUpperCase()}
+                        </div>
                         <div>
-                          <h6 style={{ margin: 0, fontSize: '0.95rem', color: '#495057', fontWeight: '600' }}>Lucky</h6>
-                          <span style={{ fontSize: '0.78rem', color: '#74788d' }}>Admin</span>
+                          <h6 style={{ margin: 0, fontSize: '0.98rem', color: '#1e293b', fontWeight: '700' }}>
+                            {adminName || 'Admin Console'}
+                          </h6>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981' }}></span>
+                            <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: '500' }}>Super Admin</span>
+                          </div>
                         </div>
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', textAlign: 'center', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '12px' }}>
-                        <div style={{ cursor: 'pointer' }} onClick={() => { setActiveTab('user_management'); setUserFilter('unapproved'); }}>
-                          <h5 style={{ margin: '0 0 2px 0', color: '#e53e3e', fontSize: '1.15rem' }}>{metrics.unapproved_users || 0}</h5>
-                          <span style={{ fontSize: '0.75rem', color: '#74788d' }}>Unapproved Users</span>
+
+                      {/* User Stats Buttons */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
+                        <div
+                          onClick={() => { handleTabClick('user_management'); setUserFilter('unapproved'); }}
+                          style={{
+                            cursor: 'pointer',
+                            padding: '12px 10px',
+                            backgroundColor: '#fef2f2',
+                            borderRadius: '10px',
+                            textAlign: 'center',
+                            border: '1px solid #fee2e2',
+                            transition: 'all 0.2s ease'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                          onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#ef4444', marginBottom: '2px' }}>
+                            <UserX size={15} />
+                            <h5 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800' }}>{metrics.unapproved_users || 0}</h5>
+                          </div>
+                          <span style={{ fontSize: '0.73rem', color: '#991b1b', fontWeight: '600' }}>Unapproved Users</span>
                         </div>
-                        <div style={{ cursor: 'pointer' }} onClick={() => { setActiveTab('user_management'); setUserFilter('all'); }}>
-                          <h5 style={{ margin: '0 0 2px 0', color: '#34c38f', fontSize: '1.15rem' }}>{metrics.approved_users || 0}</h5>
-                          <span style={{ fontSize: '0.75rem', color: '#74788d' }}>Approved Users</span>
+
+                        <div
+                          onClick={() => { handleTabClick('user_management'); setUserFilter('all'); }}
+                          style={{
+                            cursor: 'pointer',
+                            padding: '12px 10px',
+                            backgroundColor: '#f0fdf4',
+                            borderRadius: '10px',
+                            textAlign: 'center',
+                            border: '1px solid #dcfce7',
+                            transition: 'all 0.2s ease'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                          onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#10b981', marginBottom: '2px' }}>
+                            <UserCheck size={15} />
+                            <h5 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800' }}>{metrics.approved_users || 0}</h5>
+                          </div>
+                          <span style={{ fontSize: '0.73rem', color: '#166534', fontWeight: '600' }}>Approved Users</span>
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Market Bid Details Card */}
-                  <div style={{ backgroundColor: '#ffffff', borderRadius: '8px', padding: '20px', border: '1px solid #eff2f7' }}>
-                    <h5 style={{ margin: '0 0 14px 0', fontSize: '0.95rem', color: '#495057', fontWeight: '600' }}>Market Bid Details</h5>
-                    <label style={{ fontSize: '0.8rem', color: '#74788d', display: 'block', marginBottom: '6px' }}>Game Name</label>
-                    <select
-                      value={selectedGameForMarket}
-                      onChange={(e) => {
-                        setSelectedGameForMarket(e.target.value);
-                        setMarketBidAmount(e.target.value ? '0' : 'N/A');
-                      }}
-                      style={{ width: '100%', padding: '9px 12px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '0.85rem', color: '#495057', marginBottom: '14px', outline: 'none' }}
-                    >
-                      <option value="">-Select Game Name-</option>
-                      <option value="all">All Games</option>
-                      {games.map(g => (
-                        <option key={g.id} value={g.games_name}>{g.games_name}</option>
-                      ))}
-                    </select>
-                    <h3 style={{ margin: '0 0 2px 0', fontSize: '1.5rem', color: '#343a40' }}>{marketBidAmount}</h3>
-                    <span style={{ fontSize: '0.78rem', color: '#74788d' }}>Market Amount</span>
+                  <div style={{
+                    backgroundColor: '#ffffff',
+                    borderRadius: '12px',
+                    padding: '20px',
+                    border: '1px solid #eff2f7',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.03)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                      <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#e0e7ff', color: '#4338ca', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <TrendingUp size={18} />
+                      </div>
+                      <h5 style={{ margin: 0, fontSize: '0.98rem', color: '#1e293b', fontWeight: '700' }}>
+                        Market Bid Details
+                      </h5>
+                    </div>
+
+                    <div style={{ marginBottom: '16px' }}>
+                      <label style={{ fontSize: '0.78rem', color: '#64748b', display: 'block', marginBottom: '6px', fontWeight: '600' }}>
+                        Select Game Market
+                      </label>
+                      <select
+                        value={selectedGameForMarket}
+                        onChange={(e) => {
+                          setSelectedGameForMarket(e.target.value);
+                          setMarketBidAmount(e.target.value ? '0' : 'N/A');
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '10px 14px',
+                          borderRadius: '8px',
+                          border: '1px solid #cbd5e1',
+                          fontSize: '0.85rem',
+                          color: '#1e293b',
+                          backgroundColor: '#f8fafc',
+                          outline: 'none',
+                          fontWeight: '500',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <option value="">-- Select Game --</option>
+                        <option value="all">⭐ All Games Combined</option>
+                        {games.map(g => (
+                          <option key={g.id} value={g.games_name}>{g.games_name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div style={{
+                      backgroundColor: '#f8fafc',
+                      borderRadius: '10px',
+                      padding: '16px',
+                      border: '1px solid #e2e8f0',
+                      textAlign: 'center'
+                    }}>
+                      <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Total Market Bid Volume
+                      </span>
+                      <h3 style={{ margin: '6px 0 0 0', fontSize: '1.65rem', color: '#0f172a', fontWeight: '800' }}>
+                        ₹ {marketBidAmount || 0}
+                      </h3>
+                    </div>
                   </div>
                 </div>
 
                 {/* Right Column */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-                  {/* 3 Stat Cards Row */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-                    {/* Users */}
-                    <div style={{ backgroundColor: 'rgba(0, 128, 255, 0.22)', padding: '16px 20px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setActiveTab('user_management')}>
+                  {/* 3 Top Executive Stat Cards Row */}
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '16px' }}>
+                    
+                    {/* Stat Card 1: Total Users */}
+                    <div
+                      onClick={() => handleTabClick('user_management')}
+                      style={{
+                        background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                        padding: '20px',
+                        borderRadius: '12px',
+                        display: 'flex',
+                        justify: 'space-between',
+                        alignItems: 'center',
+                        cursor: 'pointer',
+                        border: '1px solid #bfdbfe',
+                        boxShadow: '0 4px 15px rgba(59, 130, 246, 0.08)',
+                        transition: 'all 0.25s ease'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-3px)'}
+                      onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                    >
                       <div>
-                        <span style={{ fontSize: '0.8rem', color: '#000000', fontWeight: '500' }}>Users</span>
-                        <h4 style={{ margin: '4px 0 0 0', fontSize: '1.35rem', color: '#000000', fontWeight: '600' }}>{metrics.total_users || 0}</h4>
+                        <span style={{ fontSize: '0.8rem', color: '#1e40af', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Total Users
+                        </span>
+                        <h4 style={{ margin: '6px 0 0 0', fontSize: '1.5rem', color: '#1e3a8a', fontWeight: '800' }}>
+                          {metrics.total_users || 0}
+                        </h4>
                       </div>
-                      <div style={{ width: '42px', height: '42px', borderRadius: '50%', backgroundColor: '#556ee6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.2rem' }}>
-                        👤
+                      <div style={{
+                        width: '46px',
+                        height: '46px',
+                        borderRadius: '12px',
+                        backgroundColor: '#2563eb',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justify: 'center',
+                        color: '#ffffff',
+                        boxShadow: '0 4px 10px rgba(37, 99, 235, 0.3)'
+                      }}>
+                        <Users size={22} />
                       </div>
                     </div>
 
-                    {/* Games */}
-                    <div style={{ backgroundColor: 'rgba(255, 0, 0, 0.22)', padding: '16px 20px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setActiveTab('rates')}>
+                    {/* Stat Card 2: Total Games */}
+                    <div
+                      onClick={() => handleTabClick('rates')}
+                      style={{
+                        background: 'linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)',
+                        padding: '20px',
+                        borderRadius: '12px',
+                        display: 'flex',
+                        justify: 'space-between',
+                        alignItems: 'center',
+                        cursor: 'pointer',
+                        border: '1px solid #fecdd3',
+                        boxShadow: '0 4px 15px rgba(244, 63, 94, 0.08)',
+                        transition: 'all 0.25s ease'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-3px)'}
+                      onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                    >
                       <div>
-                        <span style={{ fontSize: '0.8rem', color: '#000000', fontWeight: '500' }}>Games</span>
-                        <h4 style={{ margin: '4px 0 0 0', fontSize: '1.35rem', color: '#000000', fontWeight: '600' }}>{metrics.total_games || games.length || 0}</h4>
+                        <span style={{ fontSize: '0.8rem', color: '#9f1239', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Total Games
+                        </span>
+                        <h4 style={{ margin: '6px 0 0 0', fontSize: '1.5rem', color: '#881337', fontWeight: '800' }}>
+                          {metrics.total_games || games.length || 0}
+                        </h4>
                       </div>
-                      <div style={{ width: '42px', height: '42px', borderRadius: '50%', backgroundColor: '#556ee6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.2rem' }}>
-                        🎲
+                      <div style={{
+                        width: '46px',
+                        height: '46px',
+                        borderRadius: '12px',
+                        backgroundColor: '#e11d48',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justify: 'center',
+                        color: '#ffffff',
+                        boxShadow: '0 4px 10px rgba(225, 29, 72, 0.3)'
+                      }}>
+                        <Gamepad2 size={22} />
                       </div>
                     </div>
 
-                    {/* Bid Amount */}
-                    <div style={{ backgroundColor: 'rgba(255, 128, 0, 0.22)', padding: '16px 20px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    {/* Stat Card 3: Today Bid Amount */}
+                    <div
+                      style={{
+                        background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+                        padding: '20px',
+                        borderRadius: '12px',
+                        display: 'flex',
+                        justify: 'space-between',
+                        alignItems: 'center',
+                        border: '1px solid #fde68a',
+                        boxShadow: '0 4px 15px rgba(217, 119, 6, 0.08)',
+                        transition: 'all 0.25s ease'
+                      }}
+                    >
                       <div>
-                        <span style={{ fontSize: '0.8rem', color: '#000000', fontWeight: '500' }}>Bid Amount</span>
-                        <h4 style={{ margin: '4px 0 0 0', fontSize: '1.35rem', color: '#000000', fontWeight: '600' }}>{metrics.today_bid_amount || 0}</h4>
+                        <span style={{ fontSize: '0.8rem', color: '#92400e', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Today Bid Amount
+                        </span>
+                        <h4 style={{ margin: '6px 0 0 0', fontSize: '1.5rem', color: '#78350f', fontWeight: '800' }}>
+                          ₹ {metrics.today_bid_amount || 0}
+                        </h4>
                       </div>
-                      <div style={{ width: '42px', height: '42px', borderRadius: '50%', backgroundColor: '#556ee6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.2rem' }}>
-                        🏷️
+                      <div style={{
+                        width: '46px',
+                        height: '46px',
+                        borderRadius: '12px',
+                        backgroundColor: '#d97706',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justify: 'center',
+                        color: '#ffffff',
+                        boxShadow: '0 4px 10px rgba(217, 119, 6, 0.3)'
+                      }}>
+                        <TrendingUp size={22} />
                       </div>
                     </div>
+
                   </div>
 
                   {/* Total Bids On Single Ank Section */}
-                  <div style={{ backgroundColor: '#ffffff', borderRadius: '8px', padding: '20px', border: '1px solid #eff2f7' }}>
-                    <h5 style={{ margin: '0 0 16px 0', fontSize: '0.95rem', color: '#495057', fontWeight: '600' }}>
-                      Total Bids On Single Ank Of Date {ankDate ? new Date(ankDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    </h5>
+                  <div style={{
+                    backgroundColor: '#ffffff',
+                    borderRadius: '12px',
+                    padding: '22px',
+                    border: '1px solid #eff2f7',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.03)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '18px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Filter size={18} />
+                        </div>
+                        <div>
+                          <h5 style={{ margin: 0, fontSize: '0.98rem', color: '#1e293b', fontWeight: '700' }}>
+                            Single Ank Bid Analytics
+                          </h5>
+                          <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                            Selected Date: {ankDate ? new Date(ankDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
 
-                    {/* Filters */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 2fr 1fr', gap: '14px', marginBottom: '20px' }}>
+                    {/* Filter Inputs Toolbar */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: isMobile ? '1fr 1fr' : '2fr 2fr 2fr 1fr',
+                      gap: '12px',
+                      backgroundColor: '#f8fafc',
+                      padding: '14px',
+                      borderRadius: '10px',
+                      marginBottom: '20px',
+                      border: '1px solid #f1f5f9'
+                    }}>
                       <div>
-                        <label style={{ fontSize: '0.78rem', color: '#74788d', display: 'block', marginBottom: '4px' }}>Date</label>
+                        <label style={{ fontSize: '0.75rem', color: '#475569', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Date</label>
                         <input
                           type="date"
                           value={ankDate}
                           onChange={(e) => setAnkDate(e.target.value)}
-                          style={{ width: '100%', padding: '8px 10px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '0.85rem', color: '#495057' }}
+                          style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.82rem', color: '#1e293b', backgroundColor: '#fff' }}
                         />
                       </div>
 
                       <div>
-                        <label style={{ fontSize: '0.78rem', color: '#74788d', display: 'block', marginBottom: '4px' }}>Game Name</label>
+                        <label style={{ fontSize: '0.75rem', color: '#475569', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Game Name</label>
                         <select
                           value={ankGameName}
                           onChange={(e) => setAnkGameName(e.target.value)}
-                          style={{ width: '100%', padding: '8px 10px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '0.85rem', color: '#495057' }}
+                          style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.82rem', color: '#1e293b', backgroundColor: '#fff' }}
                         >
-                          <option value="">-Select Game Name-</option>
+                          <option value="">-- All Games --</option>
                           <option value="all">All Games</option>
                           {games.map(g => (
                             <option key={g.id} value={g.games_name}>{g.games_name}</option>
@@ -2417,29 +2795,43 @@ const AdminDashboard = ({ setAdminAuth }) => {
                       </div>
 
                       <div>
-                        <label style={{ fontSize: '0.78rem', color: '#74788d', display: 'block', marginBottom: '4px' }}>Market Time</label>
+                        <label style={{ fontSize: '0.75rem', color: '#475569', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Market Session</label>
                         <select
                           value={ankMarketStatus}
                           onChange={(e) => setAnkMarketStatus(e.target.value)}
-                          style={{ width: '100%', padding: '8px 10px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '0.85rem', color: '#495057' }}
+                          style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.82rem', color: '#1e293b', backgroundColor: '#fff' }}
                         >
                           <option value="open_digit">Open Market</option>
                           <option value="close_digit">Close Market</option>
                         </select>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gridColumn: isMobile ? 'span 2' : 'auto' }}>
                         <button
                           onClick={fetchAnkBids}
-                          style={{ width: '100%', padding: '9px 12px', backgroundColor: '#f1673e', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer' }}
+                          style={{
+                            width: '100%',
+                            padding: '9px 14px',
+                            backgroundColor: '#f1673e',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '0.82rem',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 10px rgba(241, 103, 62, 0.25)',
+                            transition: 'all 0.2s ease'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#d95328'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f1673e'}
                         >
-                          Get
+                          Fetch
                         </button>
                       </div>
                     </div>
 
                     {/* 10 Ank Cards Grid (Ank 0 - 9) */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)', gap: '12px' }}>
                       {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((ank) => {
                         const styleConfig = ankColors[ank];
                         const data = ankBids[ank] || { bids: 0, amount: 0 };
@@ -2448,25 +2840,49 @@ const AdminDashboard = ({ setAdminAuth }) => {
                             key={ank}
                             style={{
                               border: `1px solid ${styleConfig.border}`,
-                              borderRadius: '6px',
+                              borderRadius: '10px',
                               overflow: 'hidden',
                               backgroundColor: '#ffffff',
-                              textAlign: 'center'
+                              textAlign: 'center',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                              transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.transform = 'translateY(-3px)';
+                              e.currentTarget.style.boxShadow = `0 6px 16px ${styleConfig.border}33`;
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.transform = 'none';
+                              e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.03)';
                             }}
                           >
-                            <div style={{ padding: '8px', borderBottom: `1px solid ${styleConfig.border}`, backgroundColor: 'transparent' }}>
-                              <span style={{ color: styleConfig.header, fontSize: '0.78rem', fontWeight: '600' }}>
-                                Total Bids <span>{data.bids}</span>
+                            <div style={{
+                              padding: '8px 10px',
+                              backgroundColor: `${styleConfig.header}12`,
+                              borderBottom: `1px solid ${styleConfig.border}30`,
+                              display: 'flex',
+                              justify: 'space-between',
+                              alignItems: 'center'
+                            }}>
+                              <span style={{
+                                backgroundColor: styleConfig.header,
+                                color: '#ffffff',
+                                fontSize: '0.7rem',
+                                fontWeight: '800',
+                                padding: '2px 8px',
+                                borderRadius: '12px'
+                              }}>
+                                Ank {ank}
+                              </span>
+                              <span style={{ color: '#64748b', fontSize: '0.72rem', fontWeight: '600' }}>
+                                {data.bids} Bids
                               </span>
                             </div>
-                            <div style={{ padding: '12px 6px' }}>
-                              <h3 style={{ margin: '0 0 2px 0', fontSize: '1.25rem', color: '#343a40', fontWeight: 'bold' }}>
-                                {data.amount}
+                            <div style={{ padding: '12px 8px' }}>
+                              <h3 style={{ margin: '0 0 2px 0', fontSize: '1.25rem', color: '#1e293b', fontWeight: '800' }}>
+                                ₹ {data.amount}
                               </h3>
-                              <span style={{ fontSize: '0.7rem', color: '#74788d' }}>Total Bid Amount</span>
-                            </div>
-                            <div style={{ backgroundColor: styleConfig.footer, color: '#ffffff', padding: '6px', fontSize: '0.75rem', fontWeight: '600' }}>
-                              Ank <span>{ank}</span>
+                              <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: '500' }}>Total Amount</span>
                             </div>
                           </div>
                         );
@@ -2479,28 +2895,42 @@ const AdminDashboard = ({ setAdminAuth }) => {
 
               </div>
 
-              {/* Grid Row 2: Bid Winning Report */}
-              <div style={{ backgroundColor: '#ffffff', borderRadius: '8px', padding: '20px', border: '1px solid #eff2f7', marginBottom: '20px' }}>
-                <h5 style={{ margin: '0 0 16px 0', fontSize: '0.95rem', color: '#495057', fontWeight: '600' }}>Bid Winning Report</h5>
+              {/* Grid Row 2: Bid Winning Executive Summary */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '12px',
+                padding: '24px',
+                border: '1px solid #eff2f7',
+                marginBottom: '24px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.03)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Trophy size={18} />
+                  </div>
+                  <h5 style={{ margin: 0, fontSize: '0.98rem', color: '#1e293b', fontWeight: '700' }}>
+                    Bid Winning & Profit Analytics
+                  </h5>
+                </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 2fr 1fr', gap: '14px', marginBottom: '20px' }}>
                   <div>
-                    <label style={{ fontSize: '0.78rem', color: '#74788d', display: 'block', marginBottom: '4px' }}>Date</label>
+                    <label style={{ fontSize: '0.78rem', color: '#64748b', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Date</label>
                     <input
                       type="date"
                       value={reportDate}
                       onChange={(e) => setReportDate(e.target.value)}
-                      style={{ width: '100%', padding: '8px 10px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '0.85rem' }}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
                     />
                   </div>
                   <div>
-                    <label style={{ fontSize: '0.78rem', color: '#74788d', display: 'block', marginBottom: '4px' }}>Game Name</label>
+                    <label style={{ fontSize: '0.78rem', color: '#64748b', display: 'block', marginBottom: '4px', fontWeight: '600' }}>Game Name</label>
                     <select
                       value={reportGameName}
                       onChange={(e) => setReportGameName(e.target.value)}
-                      style={{ width: '100%', padding: '8px 10px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '0.85rem' }}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
                     >
-                      <option value="all">-All-</option>
+                      <option value="all">⭐ All Games</option>
                       {games.map(g => (
                         <option key={g.id} value={g.games_name}>{g.games_name}</option>
                       ))}
@@ -2509,112 +2939,240 @@ const AdminDashboard = ({ setAdminAuth }) => {
                   <div style={{ display: 'flex', alignItems: 'flex-end' }}>
                     <button
                       onClick={fetchBidWinReport}
-                      style={{ width: '100%', padding: '9px 12px', backgroundColor: '#f1673e', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer' }}
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        backgroundColor: '#556ee6',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '0.85rem',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(85, 110, 230, 0.25)'
+                      }}
                     >
-                      Submit
+                      Submit Report
                     </button>
                   </div>
                 </div>
 
-                {/* Summary Strips */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div style={{ border: '1px dotted #495057', padding: '10px 16px', borderRadius: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.85rem', color: '#74788d', fontWeight: '500' }}>Total Bid Amount</span>
-                    <span style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#343a40' }}>₹ {bidWinData.total_bid}</span>
-                    <button onClick={() => setActiveTab('report_bid_history')} style={{ backgroundColor: '#f1673e', color: '#fff', border: 'none', padding: '4px 12px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}>
+                {/* Summary Cards Row */}
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1.2fr', gap: '14px' }}>
+                  <div style={{
+                    backgroundColor: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    padding: '14px 18px',
+                    borderRadius: '10px',
+                    display: 'flex',
+                    justify: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <div>
+                      <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: '600' }}>Total Bid Amount</span>
+                      <h4 style={{ margin: '4px 0 0 0', fontSize: '1.25rem', color: '#0f172a', fontWeight: '800' }}>₹ {bidWinData.total_bid}</h4>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab('report_bid_history')}
+                      style={{ backgroundColor: '#e2e8f0', color: '#334155', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                    >
                       View
                     </button>
                   </div>
 
-                  <div style={{ border: '1px dotted #495057', padding: '10px 16px', borderRadius: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.85rem', color: '#74788d', fontWeight: '500' }}>Total Win Amount</span>
-                    <span style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#343a40' }}>₹ {bidWinData.total_win}</span>
-                    <button onClick={() => setActiveTab('report_winning')} style={{ backgroundColor: '#f1673e', color: '#fff', border: 'none', padding: '4px 12px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}>
+                  <div style={{
+                    backgroundColor: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    padding: '14px 18px',
+                    borderRadius: '10px',
+                    display: 'flex',
+                    justify: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <div>
+                      <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: '600' }}>Total Win Amount</span>
+                      <h4 style={{ margin: '4px 0 0 0', fontSize: '1.25rem', color: '#0f172a', fontWeight: '800' }}>₹ {bidWinData.total_win}</h4>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab('report_winning')}
+                      style={{ backgroundColor: '#e2e8f0', color: '#334155', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                    >
                       View
                     </button>
                   </div>
 
-                  <div style={{ backgroundColor: '#34c38f', color: '#ffffff', padding: '12px 16px', borderRadius: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>Total Profit Amount</span>
-                    <span style={{ fontSize: '1.05rem', fontWeight: 'bold' }}>₹ {bidWinData.profit}</span>
+                  <div style={{
+                    background: (parseFloat(bidWinData.profit) >= 0 || !bidWinData.profit)
+                      ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                      : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                    color: '#ffffff',
+                    padding: '14px 20px',
+                    borderRadius: '10px',
+                    display: 'flex',
+                    justify: 'space-between',
+                    alignItems: 'center',
+                    boxShadow: '0 4px 15px rgba(16, 185, 129, 0.2)'
+                  }}>
+                    <div>
+                      <span style={{ fontSize: '0.8rem', opacity: 0.9, fontWeight: '600' }}>
+                        {parseFloat(bidWinData.profit) >= 0 ? 'Total Net Profit' : 'Total Net Loss'}
+                      </span>
+                      <h4 style={{ margin: '2px 0 0 0', fontSize: '1.35rem', fontWeight: '800' }}>₹ {bidWinData.profit}</h4>
+                    </div>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Sparkles size={18} />
+                    </div>
                   </div>
                 </div>
 
               </div>
 
-              {/* Grid Row 3: Fund Request Auto Deposit History */}
-              <div style={{ backgroundColor: '#ffffff', borderRadius: '8px', padding: '20px', border: '1px solid #eff2f7' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <h5 style={{ margin: 0, fontSize: '0.95rem', color: '#495057', fontWeight: '600' }}>
-                    Fund Request Auto Deposit History
-                  </h5>
-                  <input
-                    type="text"
-                    placeholder="Search records..."
-                    value={autoDepositSearch}
-                    onChange={(e) => setAutoDepositSearch(e.target.value)}
-                    style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '0.82rem' }}
-                  />
+              {/* Grid Row 3: Fund Request Auto Deposit History Table */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '12px',
+                padding: '24px',
+                border: '1px solid #eff2f7',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.03)'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  flexDirection: isMobile ? 'column' : 'row',
+                  justify: 'space-between',
+                  alignItems: isMobile ? 'flex-start' : 'center',
+                  gap: '12px',
+                  marginBottom: '18px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#e0e7ff', color: '#4338ca', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Wallet size={18} />
+                    </div>
+                    <h5 style={{ margin: 0, fontSize: '0.98rem', color: '#1e293b', fontWeight: '700' }}>
+                      Fund Request Auto Deposit History
+                    </h5>
+                  </div>
+
+                  <div style={{ position: 'relative', width: isMobile ? '100%' : '280px' }}>
+                    <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                    <input
+                      type="text"
+                      placeholder="Search UTR, Username, Request..."
+                      value={autoDepositSearch}
+                      onChange={(e) => setAutoDepositSearch(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px 8px 34px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '0.82rem',
+                        backgroundColor: '#f8fafc',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
                 </div>
 
-                <div style={{ overflowX: 'auto' }}>
+                <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                     <thead>
-                      <tr style={{ backgroundColor: '#2a3042', color: '#ffffff', textAlign: 'left' }}>
-                        <th style={{ padding: '10px 12px' }}>#</th>
-                        <th style={{ padding: '10px 12px' }}>User Name</th>
-                        <th style={{ padding: '10px 12px' }}>Amount</th>
-                        <th style={{ padding: '10px 12px' }}>UTR / Transaction No.</th>
-                        <th style={{ padding: '10px 12px' }}>Request No.</th>
-                        <th style={{ padding: '10px 12px' }}>Date</th>
-                        <th style={{ padding: '10px 12px' }}>Screenshot</th>
-                        <th style={{ padding: '10px 12px' }}>Status</th>
-                        <th style={{ padding: '10px 12px' }}>Action</th>
+                      <tr style={{ backgroundColor: '#1e293b', color: '#f8fafc', textAlign: 'left' }}>
+                        <th style={{ padding: '12px 14px', fontWeight: '700' }}>#</th>
+                        <th style={{ padding: '12px 14px', fontWeight: '700' }}>User Name</th>
+                        <th style={{ padding: '12px 14px', fontWeight: '700' }}>Amount</th>
+                        <th style={{ padding: '12px 14px', fontWeight: '700' }}>UTR / Txn ID</th>
+                        <th style={{ padding: '12px 14px', fontWeight: '700' }}>Req ID</th>
+                        <th style={{ padding: '12px 14px', fontWeight: '700' }}>Date</th>
+                        <th style={{ padding: '12px 14px', fontWeight: '700' }}>Status</th>
+                        <th style={{ padding: '12px 14px', fontWeight: '700' }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {autoDeposits.filter(d => !autoDepositSearch || (d.username && d.username.includes(autoDepositSearch))).map((dep, idx) => (
-                        <tr key={dep.id} style={{ borderBottom: '1px solid #eff2f7' }}>
-                          <td style={{ padding: '10px 12px' }}>{idx + 1}</td>
-                          <td style={{ padding: '10px 12px' }}>{dep.user_name || dep.username}</td>
-                          <td style={{ padding: '10px 12px', fontWeight: '600' }}>₹{dep.amount}</td>
-                          <td style={{ padding: '10px 12px' }}>{dep.txt_request || dep.txt_id || '-'}</td>
-                          <td style={{ padding: '10px 12px' }}>{dep.id}</td>
-                          <td style={{ padding: '10px 12px' }}>{dep.txt_date}</td>
-                          <td style={{ padding: '10px 12px' }}>-</td>
-                          <td style={{ padding: '10px 12px' }}>
-                            {dep.status === '1' ? (
-                              <span style={{ backgroundColor: '#def7ec', color: '#03543f', padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600' }}>Accepted</span>
-                            ) : dep.status === '0' ? (
-                              <span style={{ backgroundColor: '#fde8e8', color: '#9b1c1c', padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600' }}>Pending</span>
-                            ) : (
-                              <span style={{ backgroundColor: '#f3f4f6', color: '#6b7280', padding: '3px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600' }}>Rejected</span>
-                            )}
-                          </td>
-                          <td style={{ padding: '10px 12px' }}>
-                            {dep.status === '0' && (
-                              <div style={{ display: 'flex', gap: '6px' }}>
-                                <button
-                                  onClick={() => handleAutoDepositAction(dep.id, '1')}
-                                  style={{ backgroundColor: '#51bb25', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer' }}
-                                >
-                                  Approve
-                                </button>
-                                <button
-                                  onClick={() => handleAutoDepositAction(dep.id, '-1')}
-                                  style={{ backgroundColor: '#dc3545', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer' }}
-                                >
-                                  Decline
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                      {autoDeposits
+                        .filter(d => !autoDepositSearch || 
+                          (d.username && d.username.toLowerCase().includes(autoDepositSearch.toLowerCase())) ||
+                          (d.user_name && d.user_name.toLowerCase().includes(autoDepositSearch.toLowerCase())) ||
+                          (d.txt_request && d.txt_request.toLowerCase().includes(autoDepositSearch.toLowerCase()))
+                        )
+                        .map((dep, idx) => (
+                          <tr key={dep.id} style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                            <td style={{ padding: '12px 14px', color: '#64748b' }}>{idx + 1}</td>
+                            <td style={{ padding: '12px 14px', fontWeight: '700', color: '#1e293b' }}>
+                              {dep.user_name || dep.username || 'N/A'}
+                            </td>
+                            <td style={{ padding: '12px 14px', fontWeight: '800', color: '#10b981' }}>₹ {dep.amount}</td>
+                            <td style={{ padding: '12px 14px', color: '#475569', fontFamily: 'monospace', fontSize: '0.82rem' }}>
+                              {dep.txt_request || dep.txt_id || '-'}
+                            </td>
+                            <td style={{ padding: '12px 14px', color: '#64748b' }}>#{dep.id}</td>
+                            <td style={{ padding: '12px 14px', color: '#64748b', fontSize: '0.8rem' }}>{dep.txt_date}</td>
+                            <td style={{ padding: '12px 14px' }}>
+                              {dep.status === '1' ? (
+                                <span style={{ backgroundColor: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: '12px', fontSize: '0.74rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <CheckCircle2 size={12} /> Accepted
+                                </span>
+                              ) : dep.status === '0' ? (
+                                <span style={{ backgroundColor: '#fef3c7', color: '#b45309', padding: '4px 10px', borderRadius: '12px', fontSize: '0.74rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <Clock size={12} /> Pending
+                                </span>
+                              ) : (
+                                <span style={{ backgroundColor: '#fee2e2', color: '#b91c1c', padding: '4px 10px', borderRadius: '12px', fontSize: '0.74rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <XCircle size={12} /> Rejected
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: '12px 14px' }}>
+                              {dep.status === '0' ? (
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                  <button
+                                    onClick={() => handleAutoDepositAction(dep.id, '1')}
+                                    style={{
+                                      backgroundColor: '#10b981',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      padding: '5px 10px',
+                                      borderRadius: '6px',
+                                      fontSize: '0.75rem',
+                                      fontWeight: '700',
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px'
+                                    }}
+                                  >
+                                    <CheckCircle2 size={12} /> Approve
+                                  </button>
+                                  <button
+                                    onClick={() => handleAutoDepositAction(dep.id, '-1')}
+                                    style={{
+                                      backgroundColor: '#ef4444',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      padding: '5px 10px',
+                                      borderRadius: '6px',
+                                      fontSize: '0.75rem',
+                                      fontWeight: '700',
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px'
+                                    }}
+                                  >
+                                    <XCircle size={12} /> Decline
+                                  </button>
+                                </div>
+                              ) : (
+                                <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>--</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
                       {autoDeposits.length === 0 && (
                         <tr>
-                          <td colSpan="9" style={{ padding: '20px', textAlign: 'center', color: '#74788d' }}>
-                            No auto deposit requests found.
+                          <td colSpan="8" style={{ padding: '30px 20px', textAlign: 'center', color: '#94a3b8' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                              <Wallet size={32} style={{ color: '#cbd5e1' }} />
+                              <span style={{ fontSize: '0.88rem', fontWeight: '500' }}>No auto deposit requests found</span>
+                            </div>
                           </td>
                         </tr>
                       )}
@@ -4581,7 +5139,7 @@ const AdminDashboard = ({ setAdminAuth }) => {
                         🌐 Landing Website & APK Controls
                       </h5>
                       <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: '#74788d' }}>
-                        Configure the APK Download Button Link and How to Play Website Link displayed on the public landing portal (shreematka).
+                        Configure the APK Download Button Link and How to Play Website Link displayed on the public landing portal (gama567).
                       </p>
                     </div>
 

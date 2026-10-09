@@ -29,10 +29,22 @@ exports.getLandingInfo = async (req, res) => {
       ratesRows = [];
     }
 
-    const appName = settings.ac_name || settings.upi_name || 'SHREE MATKA';
-    const appLink = settings.app_link || '#';
+    let alertMessage = (settings.alert_message && settings.alert_message.trim() !== '') ? settings.alert_message : '';
+    if (!alertMessage) {
+      try {
+        const [noticeRows] = await db.query('SELECT * FROM notice ORDER BY id DESC LIMIT 1');
+        if (noticeRows.length > 0 && (noticeRows[0].notice_msg || noticeRows[0].title)) {
+          alertMessage = noticeRows[0].notice_msg || noticeRows[0].title;
+        }
+      } catch (e) {}
+    }
+    if (!alertMessage) {
+      alertMessage = "Welcome to India's No.1 Live Matka Result Portal! Download our official app now.";
+    }
+
+    const appName = settings.ac_name || settings.upi_name || 'GAMA567';
+    const appLink = (settings.app_link && settings.app_link.trim() !== '' && settings.app_link !== '#') ? settings.app_link : '/apk/gama-567.apk';
     const howToPlay = settings.how_to_play || '#';
-    const alertMessage = settings.alert_message || 'Welcome to India\'s Fastest Live Matka Result & Information Portal!';
     const mobile = contact.mobile || '';
     const wpMobile = contact.wp_mobile || contact.mobile || '';
 
