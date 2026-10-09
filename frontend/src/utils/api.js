@@ -77,12 +77,17 @@ api.interceptors.response.use(
   (error) => {
     if (error.response && error.response.status === 401) {
       const isAdminReq = error.config?.url && error.config.url.includes('/admin');
-      if (!isAdminReq && (error.response.data?.is_inactive || error.response.data?.msg?.toLowerCase().includes('inactive'))) {
+      if (isAdminReq) {
+        localStorage.removeItem('admin_token');
+        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin') && window.location.pathname !== '/admin/login') {
+          window.location.href = '/admin/login';
+        }
+      } else if (error.response.data?.is_inactive || error.response.data?.msg?.toLowerCase().includes('inactive')) {
         localStorage.removeItem('token');
         localStorage.removeItem('phone');
         localStorage.removeItem('name');
         sessionStorage.removeItem('mpin_unlocked');
-        if (window.location.pathname !== '/login') {
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
           window.location.href = '/login?error=inactive';
         }
       }

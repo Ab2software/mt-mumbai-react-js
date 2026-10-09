@@ -211,55 +211,6 @@ const Signup = ({ setAuth }) => {
 
               <div className="form-group">
                 <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <KeyRound size={14} /> 4-Digit M-PIN
-                </label>
-                <div className="input-group-custom">
-                  <div className="input-icon-left">
-                    <KeyRound size={18} />
-                  </div>
-                  <input
-                    type={showMpin ? 'text' : 'password'}
-                    name="user_mpin"
-                    className="form-input form-input-icon"
-                    placeholder="4-digit pin"
-                    value={formData.user_mpin}
-                    onChange={(e) => setFormData({ ...formData, user_mpin: e.target.value.replace(/\D/g, '').slice(0, 4) })}
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="password-toggle-btn"
-                    onClick={() => setShowMpin(!showMpin)}
-                    title={showMpin ? 'Hide M-PIN' : 'Show M-PIN'}
-                  >
-                    {showMpin ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Mail size={14} /> Email Address (Optional)
-              </label>
-              <div className="input-group-custom">
-                <div className="input-icon-left">
-                  <Mail size={18} />
-                </div>
-                <input
-                  type="email"
-                  name="user_email"
-                  className="form-input form-input-icon"
-                  placeholder="Enter email address"
-                  value={formData.user_email}
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
-
-            <div className="grid-cols-2">
-              <div className="form-group">
-                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Lock size={14} /> Password
                 </label>
                 <div className="input-group-custom">
@@ -282,6 +233,36 @@ const Signup = ({ setAuth }) => {
                     title={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid-cols-2">
+              <div className="form-group">
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <KeyRound size={14} /> 4-Digit M-PIN
+                </label>
+                <div className="input-group-custom">
+                  <div className="input-icon-left">
+                    <KeyRound size={18} />
+                  </div>
+                  <input
+                    type={showMpin ? 'text' : 'password'}
+                    name="user_mpin"
+                    className="form-input form-input-icon"
+                    placeholder="4-digit pin"
+                    value={formData.user_mpin}
+                    onChange={(e) => setFormData({ ...formData, user_mpin: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle-btn"
+                    onClick={() => setShowMpin(!showMpin)}
+                    title={showMpin ? 'Hide M-PIN' : 'Show M-PIN'}
+                  >
+                    {showMpin ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
               </div>

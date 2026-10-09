@@ -68,8 +68,11 @@ router.get('/app-info', async (req, res) => {
     try {
       await db.query(`ALTER TABLE admin_settings ADD COLUMN referral_status VARCHAR(10) DEFAULT '1'`);
     } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE admin_settings ADD COLUMN auto_active_status VARCHAR(10) DEFAULT '1'`);
+    } catch (e) {}
 
-    const [settings] = await db.query('SELECT app_link, upi_name, mpin_status, slider_status, referral_status, alert_message FROM admin_settings LIMIT 1');
+    const [settings] = await db.query('SELECT app_link, upi_name, mpin_status, slider_status, referral_status, auto_active_status, alert_message FROM admin_settings LIMIT 1');
     const [admins] = await db.query('SELECT name FROM admin WHERE id = 1');
     const [contacts] = await db.query('SELECT mobile, wp_mobile FROM contact_detail LIMIT 1');
     let appName = 'Lucky';
@@ -86,6 +89,7 @@ router.get('/app-info', async (req, res) => {
     const mpinStatus = (settings.length > 0 && settings[0].mpin_status !== undefined && settings[0].mpin_status !== null) ? String(settings[0].mpin_status) : '1';
     const sliderStatus = (settings.length > 0 && settings[0].slider_status !== undefined && settings[0].slider_status !== null) ? String(settings[0].slider_status) : '1';
     const referralStatus = (settings.length > 0 && settings[0].referral_status !== undefined && settings[0].referral_status !== null) ? String(settings[0].referral_status) : '1';
+    const autoActiveStatus = (settings.length > 0 && settings[0].auto_active_status !== undefined && settings[0].auto_active_status !== null) ? String(settings[0].auto_active_status) : '1';
     const alertMessage = settings.length > 0 ? (settings[0].alert_message || '') : '';
 
     let sliders = [];
@@ -108,6 +112,7 @@ router.get('/app-info', async (req, res) => {
         mpin_status: mpinStatus,
         slider_status: sliderStatus,
         referral_status: referralStatus,
+        auto_active_status: autoActiveStatus,
         sliders: sliders,
         alert_message: alertMessage
       }

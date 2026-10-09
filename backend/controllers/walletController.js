@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const fs = require('fs');
 const path = require('path');
+const { getISTDate, getISTDateStr, getISTDateTimeStr } = require('../utils/istDate');
 
 // Get Wallet Information & Settings
 exports.getWalletInfo = async (req, res) => {
@@ -112,8 +113,8 @@ exports.submitFundRequest = async (req, res) => {
     }
 
     const trans_details = 'Fund Request';
-    const currentDateStr = new Date().toISOString().slice(0, 10);
-    const todayDateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const currentDateStr = getISTDateStr();
+    const todayDateTime = getISTDateTimeStr();
 
     // 1. Insert in user_fund_request
     const [fundResult] = await db.query(
@@ -157,8 +158,9 @@ exports.submitWithdrawRequest = async (req, res) => {
   }
 
   const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const currentDayName = daysOfWeek[new Date().getDay()];
-  const currentDateStr = new Date().toISOString().slice(0, 10);
+  const nowIST = getISTDate();
+  const currentDayName = daysOfWeek[nowIST.getDay()];
+  const currentDateStr = getISTDateStr(nowIST);
 
   try {
     const [settings] = await db.query("SELECT * FROM admin_settings LIMIT 1");
@@ -178,8 +180,8 @@ exports.submitWithdrawRequest = async (req, res) => {
       return res.json({ success: '0', msg: `Withdraw Request Not Allowed on ${currentDayName}` });
     }
 
-    // Timings validation
-    const currentTime = new Date();
+    // Timings validation using IST
+    const currentTime = nowIST;
     const openTime = new Date(currentDateStr + 'T' + (limits.withdraw_open_time || '00:00:00'));
     const closeTime = new Date(currentDateStr + 'T' + (limits.withdraw_close_time || '23:59:59'));
 
@@ -220,14 +222,31 @@ exports.submitWithdrawRequest = async (req, res) => {
       return res.json({ success: '0', msg: 'Still pending your last request' });
     }
 
+    // Deduct wallet balance instantly on withdrawal request submission
+    const newBalance = walletAmount - points;
+    await db.query("UPDATE user_info SET wallet = ? WHERE phone = ?", [newBalance, phone]);
+
+    const { getISTTimeStr } = require('../utils/istDate');
+    const currentTimeStr = getISTTimeStr(nowIST);
+    const historyRemark = remark ? `Withdrawal Request (${remark})` : 'Withdrawal Request Placed';
+
+    await db.query(
+      "INSERT INTO wallet_history (status, date, time, amount, updated_amount, remark, phone_number) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      ['0', currentDateStr, currentTimeStr, `-${points}`, newBalance, historyRemark, phone]
+    );
+
     // Insert request
     const [insertResult] = await db.query(
       "INSERT INTO user_withdraw_request (username, points, amount, request_no, receipe_image, date, remark, status, action) VALUES (?, ?, 0, '', '', ?, ?, '0', '')",
-      [phone, points, currentDateStr, remark || '']
+      [phone, points, currentDateStr, historyRemark]
     );
 
     if (insertResult.affectedRows > 0) {
-      return res.json({ success: '1', msg: 'Withdraw Request Added Successfully!!' });
+      return res.json({
+        success: '1',
+        msg: 'Withdraw Request Added Successfully!!',
+        balance: newBalance
+      });
     } else {
       return res.json({ success: '0', msg: 'Some Error Occurred! Try Again Later!!' });
     }

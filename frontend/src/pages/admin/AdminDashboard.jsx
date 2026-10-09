@@ -3,7 +3,8 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { 
   Users, Gamepad2, TrendingUp, RefreshCw, Calendar, Filter, 
   CheckCircle2, XCircle, Clock, Search, Trophy, Wallet, 
-  ArrowUpRight, ShieldCheck, Sparkles, UserCheck, UserX, Eye
+  ArrowUpRight, ShieldCheck, Sparkles, UserCheck, UserX, Eye,
+  Home, Share2, Target, FileText, Settings, ChevronDown, ChevronRight, Menu, Maximize2, LogOut, Zap
 } from 'lucide-react';
 import api from '../../utils/api';
 import DataTable from '../../components/common/DataTable';
@@ -416,6 +417,27 @@ const AdminDashboard = ({ setAdminAuth }) => {
   const [withReqTotals, setWithReqTotals] = useState({ total_amount: 0, total_approved: 0, total_rejected: 0, total_pending: 0 });
   const [withReqLoading, setWithReqLoading] = useState(false);
   const [selectedWithdrawModal, setSelectedWithdrawModal] = useState(null);
+  const [modalUserData, setModalUserData] = useState(null);
+  const [modalUserLoading, setModalUserLoading] = useState(false);
+
+  useEffect(() => {
+    if (selectedWithdrawModal && (selectedWithdrawModal.username || selectedWithdrawModal.phone)) {
+      const userPhone = selectedWithdrawModal.username || selectedWithdrawModal.phone;
+      setModalUserLoading(true);
+      api.get(`/admin/user-details/${userPhone}`, getHeaders())
+        .then(res => {
+          if (res.data.success === '1' && res.data.user) {
+            setModalUserData(res.data.user);
+          } else {
+            setModalUserData(null);
+          }
+        })
+        .catch(() => setModalUserData(null))
+        .finally(() => setModalUserLoading(false));
+    } else {
+      setModalUserData(null);
+    }
+  }, [selectedWithdrawModal]);
 
   // 3. Add Fund (User Wallet)
   const [addFundUserPhone, setAddFundUserPhone] = useState('');
@@ -913,6 +935,31 @@ const AdminDashboard = ({ setAdminAuth }) => {
     } catch (err) {
       console.error(err);
       setSettingsError('Error updating M-PIN setting');
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  const handleSaveAutoActiveSetting = async (e) => {
+    if (e) e.preventDefault();
+    setSettingsLoading(true);
+    setSettingsMsg('');
+    setSettingsError('');
+    try {
+      const res = await api.post('/admin/settings/update', {
+        settings: {
+          auto_active_status: settingsData.auto_active_status !== undefined ? String(settingsData.auto_active_status) : '1'
+        }
+      }, getHeaders());
+      if (res.data.success === '1') {
+        setSettingsMsg('Auto Active Mode Setting Updated Successfully!');
+        fetchSettings();
+      } else {
+        setSettingsError(res.data.msg || 'Failed to update Auto Active Setting');
+      }
+    } catch (err) {
+      console.error(err);
+      setSettingsError('Error updating Auto Active setting');
     } finally {
       setSettingsLoading(false);
     }
@@ -1954,44 +2001,48 @@ const AdminDashboard = ({ setAdminAuth }) => {
 
           {/* Dashboards */}
           <div onClick={() => handleTabClick('dashboards')} style={sidebarItemStyle(activeTab === 'dashboards')}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '1.1rem' }}>🏠</span>
-              {(!isDesktopSidebarCollapsed || isMobile) && <span>Dashboards</span>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+              <Home size={18} style={{ flexShrink: 0, color: activeTab === 'dashboards' ? '#f1673e' : '#a6b0cf' }} />
+              {(!isDesktopSidebarCollapsed || isMobile) && <span style={{ whiteSpace: 'nowrap' }}>Dashboards</span>}
             </div>
           </div>
 
           {/* User Management */}
           <div onClick={() => handleTabClick('user_management')} style={sidebarItemStyle(activeTab === 'user_management')}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '1.1rem' }}>👥</span>
-              {(!isDesktopSidebarCollapsed || isMobile) && <span>User Management</span>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+              <Users size={18} style={{ flexShrink: 0, color: activeTab === 'user_management' ? '#f1673e' : '#a6b0cf' }} />
+              {(!isDesktopSidebarCollapsed || isMobile) && <span style={{ whiteSpace: 'nowrap' }}>User Management</span>}
             </div>
           </div>
 
           {/* Referral Report */}
           <div onClick={() => handleTabClick('referrals')} style={sidebarItemStyle(activeTab === 'referrals')}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '1.1rem' }}>🔗</span>
-              {(!isDesktopSidebarCollapsed || isMobile) && <span>Referral Report</span>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+              <Share2 size={18} style={{ flexShrink: 0, color: activeTab === 'referrals' ? '#f1673e' : '#a6b0cf' }} />
+              {(!isDesktopSidebarCollapsed || isMobile) && <span style={{ whiteSpace: 'nowrap' }}>Referral Report</span>}
             </div>
           </div>
 
           {/* Declare Result */}
           <div onClick={() => handleTabClick('declare_result')} style={sidebarItemStyle(activeTab === 'declare_result')}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '1.1rem' }}>🎯</span>
-              {(!isDesktopSidebarCollapsed || isMobile) && <span>Declare Result</span>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+              <Target size={18} style={{ flexShrink: 0, color: activeTab === 'declare_result' ? '#f1673e' : '#a6b0cf' }} />
+              {(!isDesktopSidebarCollapsed || isMobile) && <span style={{ whiteSpace: 'nowrap' }}>Declare Result</span>}
             </div>
           </div>
 
           {/* Report Management (Collapsible) */}
           <div>
             <div onClick={() => toggleMenu('reports')} style={sidebarItemStyle(activeTab.startsWith('report_'))}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '1.1rem' }}>📄</span>
-                {(!isDesktopSidebarCollapsed || isMobile) && <span>Report Management</span>}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                <FileText size={18} style={{ flexShrink: 0, color: activeTab.startsWith('report_') ? '#f1673e' : '#a6b0cf' }} />
+                {(!isDesktopSidebarCollapsed || isMobile) && <span style={{ whiteSpace: 'nowrap' }}>Report Management</span>}
               </div>
-              {(!isDesktopSidebarCollapsed || isMobile) && <span style={{ fontSize: '0.75rem' }}>{openMenus.reports ? '▾' : '▸'}</span>}
+              {(!isDesktopSidebarCollapsed || isMobile) && (
+                <div style={{ display: 'flex', alignItems: 'center', color: '#a6b0cf' }}>
+                  {openMenus.reports ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </div>
+              )}
             </div>
             {openMenus.reports && (!isDesktopSidebarCollapsed || isMobile) && (
               <div>
@@ -2023,11 +2074,15 @@ const AdminDashboard = ({ setAdminAuth }) => {
           {/* Wallet Management (Collapsible) */}
           <div>
             <div onClick={() => toggleMenu('wallet')} style={sidebarItemStyle(['deposits', 'withdrawals', 'add_fund_wallet', 'bid_revert'].includes(activeTab))}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '1.1rem' }}>👛</span>
-                {(!isDesktopSidebarCollapsed || isMobile) && <span>Wallet Management</span>}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                <Wallet size={18} style={{ flexShrink: 0, color: ['deposits', 'withdrawals', 'add_fund_wallet', 'bid_revert'].includes(activeTab) ? '#f1673e' : '#a6b0cf' }} />
+                {(!isDesktopSidebarCollapsed || isMobile) && <span style={{ whiteSpace: 'nowrap' }}>Wallet Management</span>}
               </div>
-              {(!isDesktopSidebarCollapsed || isMobile) && <span style={{ fontSize: '0.75rem' }}>{openMenus.wallet ? '▾' : '▸'}</span>}
+              {(!isDesktopSidebarCollapsed || isMobile) && (
+                <div style={{ display: 'flex', alignItems: 'center', color: '#a6b0cf' }}>
+                  {openMenus.wallet ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </div>
+              )}
             </div>
             {openMenus.wallet && (!isDesktopSidebarCollapsed || isMobile) && (
               <div>
@@ -2050,11 +2105,15 @@ const AdminDashboard = ({ setAdminAuth }) => {
           {/* Games Management (Collapsible) */}
           <div>
             <div onClick={() => toggleMenu('games')} style={sidebarItemStyle(['game_names', 'rates'].includes(activeTab))}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '1.1rem' }}>🎯</span>
-                {(!isDesktopSidebarCollapsed || isMobile) && <span>Games Management</span>}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                <Gamepad2 size={18} style={{ flexShrink: 0, color: ['game_names', 'rates'].includes(activeTab) ? '#f1673e' : '#a6b0cf' }} />
+                {(!isDesktopSidebarCollapsed || isMobile) && <span style={{ whiteSpace: 'nowrap' }}>Games Management</span>}
               </div>
-              {(!isDesktopSidebarCollapsed || isMobile) && <span style={{ fontSize: '0.75rem' }}>{openMenus.games ? '▾' : '▸'}</span>}
+              {(!isDesktopSidebarCollapsed || isMobile) && (
+                <div style={{ display: 'flex', alignItems: 'center', color: '#a6b0cf' }}>
+                  {openMenus.games ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </div>
+              )}
             </div>
             {openMenus.games && (!isDesktopSidebarCollapsed || isMobile) && (
               <div>
@@ -2071,11 +2130,15 @@ const AdminDashboard = ({ setAdminAuth }) => {
           {/* Game & Numbers (Collapsible) */}
           <div>
             <div onClick={() => toggleMenu('numbers')} style={sidebarItemStyle(activeTab.startsWith('num_'))}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '1.1rem' }}>🎯</span>
-                {(!isDesktopSidebarCollapsed || isMobile) && <span>Game & Numbers</span>}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                <Sparkles size={18} style={{ flexShrink: 0, color: activeTab.startsWith('num_') ? '#f1673e' : '#a6b0cf' }} />
+                {(!isDesktopSidebarCollapsed || isMobile) && <span style={{ whiteSpace: 'nowrap' }}>Game & Numbers</span>}
               </div>
-              {(!isDesktopSidebarCollapsed || isMobile) && <span style={{ fontSize: '0.75rem' }}>{openMenus.numbers ? '▾' : '▸'}</span>}
+              {(!isDesktopSidebarCollapsed || isMobile) && (
+                <div style={{ display: 'flex', alignItems: 'center', color: '#a6b0cf' }}>
+                  {openMenus.numbers ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </div>
+              )}
             </div>
             {openMenus.numbers && (!isDesktopSidebarCollapsed || isMobile) && (
               <div>
@@ -2090,17 +2153,32 @@ const AdminDashboard = ({ setAdminAuth }) => {
             )}
           </div>
 
+          {/* Auto Active Sidebar Item */}
+          <div onClick={() => handleTabClick('auto_active')} style={sidebarItemStyle(activeTab === 'auto_active')}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+              <Zap size={18} style={{ flexShrink: 0, color: activeTab === 'auto_active' ? '#f1673e' : '#a6b0cf' }} />
+              {(!isDesktopSidebarCollapsed || isMobile) && <span style={{ whiteSpace: 'nowrap' }}>Auto Active</span>}
+            </div>
+          </div>
+
           {/* Settings (Collapsible) */}
           <div>
-            <div onClick={() => toggleMenu('settings')} style={sidebarItemStyle(['settings', 'contact_settings', 'sliders', 'how_to_play'].includes(activeTab))}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '1.1rem' }}>⚙️</span>
-                {(!isDesktopSidebarCollapsed || isMobile) && <span>Settings</span>}
+            <div onClick={() => toggleMenu('settings')} style={sidebarItemStyle(['settings', 'contact_settings', 'sliders', 'how_to_play', 'auto_active'].includes(activeTab))}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                <Settings size={18} style={{ flexShrink: 0, color: ['settings', 'contact_settings', 'sliders', 'how_to_play', 'auto_active'].includes(activeTab) ? '#f1673e' : '#a6b0cf' }} />
+                {(!isDesktopSidebarCollapsed || isMobile) && <span style={{ whiteSpace: 'nowrap' }}>Settings</span>}
               </div>
-              {(!isDesktopSidebarCollapsed || isMobile) && <span style={{ fontSize: '0.75rem' }}>{openMenus.settings ? '▾' : '▸'}</span>}
+              {(!isDesktopSidebarCollapsed || isMobile) && (
+                <div style={{ display: 'flex', alignItems: 'center', color: '#a6b0cf' }}>
+                  {openMenus.settings ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </div>
+              )}
             </div>
             {openMenus.settings && (!isDesktopSidebarCollapsed || isMobile) && (
               <div>
+                <div onClick={() => handleTabClick('auto_active')} style={submenuItemStyle(activeTab === 'auto_active')}>
+                  Auto Active Mode
+                </div>
                 <div onClick={() => handleTabClick('settings')} style={submenuItemStyle(activeTab === 'settings')}>
                   Main Settings
                 </div>
@@ -2265,7 +2343,7 @@ const AdminDashboard = ({ setAdminAuth }) => {
                   onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f8f9fa'; }}
                   onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                 >
-                  <span>👤</span>
+                  <Users size={16} style={{ color: '#556ee6' }} />
                   <span>Change Password</span>
                 </div>
 
@@ -2287,7 +2365,7 @@ const AdminDashboard = ({ setAdminAuth }) => {
                   onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f8f9fa'; }}
                   onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                 >
-                  <span>⚙️</span>
+                  <Settings size={16} style={{ color: '#556ee6' }} />
                   <span>Settings</span>
                 </div>
 
@@ -2311,7 +2389,7 @@ const AdminDashboard = ({ setAdminAuth }) => {
                   onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'rgba(244,106,106,0.1)'; }}
                   onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                 >
-                  <span>⏻</span>
+                  <LogOut size={16} style={{ color: '#f46a6a' }} />
                   <span>Logout</span>
                 </div>
               </div>
@@ -2433,7 +2511,7 @@ const AdminDashboard = ({ setAdminAuth }) => {
                       padding: '24px 20px',
                       color: '#ffffff',
                       display: 'flex',
-                      justify: 'space-between',
+                      justifyContent: 'space-between',
                       alignItems: 'center',
                       position: 'relative',
                       overflow: 'hidden'
@@ -2456,7 +2534,7 @@ const AdminDashboard = ({ setAdminAuth }) => {
                         backgroundColor: 'rgba(255,255,255,0.2)',
                         display: 'flex',
                         alignItems: 'center',
-                        justify: 'center',
+                        justifyContent: 'center',
                         fontSize: '1.8rem',
                         backdropFilter: 'blur(4px)',
                         border: '2px solid rgba(255,255,255,0.3)',
@@ -2476,7 +2554,7 @@ const AdminDashboard = ({ setAdminAuth }) => {
                           color: '#2563eb',
                           display: 'flex',
                           alignItems: 'center',
-                          justify: 'center',
+                          justifyContent: 'center',
                           fontWeight: '800',
                           fontSize: '1.2rem',
                           border: '2px solid #3b82f6',
@@ -2618,11 +2696,15 @@ const AdminDashboard = ({ setAdminAuth }) => {
                       onClick={() => handleTabClick('user_management')}
                       style={{
                         background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-                        padding: '20px',
+                        padding: '16px 18px',
                         borderRadius: '12px',
                         display: 'flex',
-                        justify: 'space-between',
+                        justifyContent: 'space-between',
                         alignItems: 'center',
+                        gap: '12px',
+                        minWidth: 0,
+                        height: '84px',
+                        boxSizing: 'border-box',
                         cursor: 'pointer',
                         border: '1px solid #bfdbfe',
                         boxShadow: '0 4px 15px rgba(59, 130, 246, 0.08)',
@@ -2631,22 +2713,24 @@ const AdminDashboard = ({ setAdminAuth }) => {
                       onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-3px)'}
                       onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
                     >
-                      <div>
-                        <span style={{ fontSize: '0.8rem', color: '#1e40af', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        <span style={{ fontSize: '0.72rem', color: '#1e40af', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'block', lineHeight: 1.2 }}>
                           Total Users
                         </span>
-                        <h4 style={{ margin: '6px 0 0 0', fontSize: '1.5rem', color: '#1e3a8a', fontWeight: '800' }}>
+                        <h4 style={{ margin: '4px 0 0 0', fontSize: '1.4rem', color: '#1e3a8a', fontWeight: '800', lineHeight: 1 }}>
                           {metrics.total_users || 0}
                         </h4>
                       </div>
                       <div style={{
-                        width: '46px',
-                        height: '46px',
+                        width: '44px',
+                        height: '44px',
+                        minWidth: '44px',
+                        flexShrink: 0,
                         borderRadius: '12px',
                         backgroundColor: '#2563eb',
                         display: 'flex',
                         alignItems: 'center',
-                        justify: 'center',
+                        justifyContent: 'center',
                         color: '#ffffff',
                         boxShadow: '0 4px 10px rgba(37, 99, 235, 0.3)'
                       }}>
@@ -2659,11 +2743,15 @@ const AdminDashboard = ({ setAdminAuth }) => {
                       onClick={() => handleTabClick('rates')}
                       style={{
                         background: 'linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)',
-                        padding: '20px',
+                        padding: '16px 18px',
                         borderRadius: '12px',
                         display: 'flex',
-                        justify: 'space-between',
+                        justifyContent: 'space-between',
                         alignItems: 'center',
+                        gap: '12px',
+                        minWidth: 0,
+                        height: '84px',
+                        boxSizing: 'border-box',
                         cursor: 'pointer',
                         border: '1px solid #fecdd3',
                         boxShadow: '0 4px 15px rgba(244, 63, 94, 0.08)',
@@ -2672,22 +2760,24 @@ const AdminDashboard = ({ setAdminAuth }) => {
                       onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-3px)'}
                       onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
                     >
-                      <div>
-                        <span style={{ fontSize: '0.8rem', color: '#9f1239', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        <span style={{ fontSize: '0.72rem', color: '#9f1239', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'block', lineHeight: 1.2 }}>
                           Total Games
                         </span>
-                        <h4 style={{ margin: '6px 0 0 0', fontSize: '1.5rem', color: '#881337', fontWeight: '800' }}>
+                        <h4 style={{ margin: '4px 0 0 0', fontSize: '1.4rem', color: '#881337', fontWeight: '800', lineHeight: 1 }}>
                           {metrics.total_games || games.length || 0}
                         </h4>
                       </div>
                       <div style={{
-                        width: '46px',
-                        height: '46px',
+                        width: '44px',
+                        height: '44px',
+                        minWidth: '44px',
+                        flexShrink: 0,
                         borderRadius: '12px',
                         backgroundColor: '#e11d48',
                         display: 'flex',
                         alignItems: 'center',
-                        justify: 'center',
+                        justifyContent: 'center',
                         color: '#ffffff',
                         boxShadow: '0 4px 10px rgba(225, 29, 72, 0.3)'
                       }}>
@@ -2699,32 +2789,38 @@ const AdminDashboard = ({ setAdminAuth }) => {
                     <div
                       style={{
                         background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
-                        padding: '20px',
+                        padding: '16px 18px',
                         borderRadius: '12px',
                         display: 'flex',
-                        justify: 'space-between',
+                        justifyContent: 'space-between',
                         alignItems: 'center',
+                        gap: '12px',
+                        minWidth: 0,
+                        height: '84px',
+                        boxSizing: 'border-box',
                         border: '1px solid #fde68a',
                         boxShadow: '0 4px 15px rgba(217, 119, 6, 0.08)',
                         transition: 'all 0.25s ease'
                       }}
                     >
-                      <div>
-                        <span style={{ fontSize: '0.8rem', color: '#92400e', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        <span style={{ fontSize: '0.72rem', color: '#92400e', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'block', lineHeight: 1.2 }}>
                           Today Bid Amount
                         </span>
-                        <h4 style={{ margin: '6px 0 0 0', fontSize: '1.5rem', color: '#78350f', fontWeight: '800' }}>
+                        <h4 style={{ margin: '4px 0 0 0', fontSize: '1.4rem', color: '#78350f', fontWeight: '800', lineHeight: 1 }}>
                           ₹ {metrics.today_bid_amount || 0}
                         </h4>
                       </div>
                       <div style={{
-                        width: '46px',
-                        height: '46px',
+                        width: '44px',
+                        height: '44px',
+                        minWidth: '44px',
+                        flexShrink: 0,
                         borderRadius: '12px',
                         backgroundColor: '#d97706',
                         display: 'flex',
                         alignItems: 'center',
-                        justify: 'center',
+                        justifyContent: 'center',
                         color: '#ffffff',
                         boxShadow: '0 4px 10px rgba(217, 119, 6, 0.3)'
                       }}>
@@ -2861,7 +2957,7 @@ const AdminDashboard = ({ setAdminAuth }) => {
                               backgroundColor: `${styleConfig.header}12`,
                               borderBottom: `1px solid ${styleConfig.border}30`,
                               display: 'flex',
-                              justify: 'space-between',
+                              justifyContent: 'space-between',
                               alignItems: 'center'
                             }}>
                               <span style={{
@@ -2965,7 +3061,7 @@ const AdminDashboard = ({ setAdminAuth }) => {
                     padding: '14px 18px',
                     borderRadius: '10px',
                     display: 'flex',
-                    justify: 'space-between',
+                    justifyContent: 'space-between',
                     alignItems: 'center'
                   }}>
                     <div>
@@ -2986,7 +3082,7 @@ const AdminDashboard = ({ setAdminAuth }) => {
                     padding: '14px 18px',
                     borderRadius: '10px',
                     display: 'flex',
-                    justify: 'space-between',
+                    justifyContent: 'space-between',
                     alignItems: 'center'
                   }}>
                     <div>
@@ -3009,7 +3105,7 @@ const AdminDashboard = ({ setAdminAuth }) => {
                     padding: '14px 20px',
                     borderRadius: '10px',
                     display: 'flex',
-                    justify: 'space-between',
+                    justifyContent: 'space-between',
                     alignItems: 'center',
                     boxShadow: '0 4px 15px rgba(16, 185, 129, 0.2)'
                   }}>
@@ -3038,7 +3134,7 @@ const AdminDashboard = ({ setAdminAuth }) => {
                 <div style={{
                   display: 'flex',
                   flexDirection: isMobile ? 'column' : 'row',
-                  justify: 'space-between',
+                  justifyContent: 'space-between',
                   alignItems: isMobile ? 'flex-start' : 'center',
                   gap: '12px',
                   marginBottom: '18px'
@@ -4766,6 +4862,141 @@ const AdminDashboard = ({ setAdminAuth }) => {
             </div>
           )}
 
+          {/* VIEW: AUTO ACTIVE SETTINGS */}
+          {activeTab === 'auto_active' && (
+            <div style={{ animation: 'fadeIn 0.3s ease-in-out' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', backgroundColor: '#ffffff', padding: '18px 24px', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', border: '1px solid #eff2f7' }}>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b', fontWeight: '800' }}>
+                    Auto Active Mode Configuration
+                  </h4>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: '#64748b' }}>
+                    Control app behavior for new registered users (Direct Gaming vs Quiz App Mode).
+                  </p>
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                  Dashboard / <span style={{ color: '#556ee6', fontWeight: '700' }}>Auto Active</span>
+                </div>
+              </div>
+
+              {settingsMsg && (
+                <div style={{ backgroundColor: '#def7ec', color: '#03543f', border: '1px solid #bcf0da', padding: '12px 18px', borderRadius: '8px', fontSize: '0.88rem', marginBottom: '20px', fontWeight: '600' }}>
+                  ✓ {settingsMsg}
+                </div>
+              )}
+              {settingsError && (
+                <div style={{ backgroundColor: '#fde8e8', color: '#e53e3e', border: '1px solid #f8b4b4', padding: '12px 18px', borderRadius: '8px', fontSize: '0.88rem', marginBottom: '20px', fontWeight: '600' }}>
+                  ⚠️ {settingsError}
+                </div>
+              )}
+
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '28px', border: '1px solid #eff2f7', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', maxWidth: '720px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                  <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Zap size={24} />
+                  </div>
+                  <div>
+                    <h5 style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b', fontWeight: '700' }}>
+                      Auto Active Mode Status
+                    </h5>
+                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Select option via radio buttons</span>
+                  </div>
+                </div>
+
+                <form onSubmit={handleSaveAutoActiveSetting}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '28px' }}>
+
+                    {/* Radio Option 1: ON (Direct Play Game) */}
+                    <label style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '16px',
+                      padding: '18px 20px',
+                      borderRadius: '12px',
+                      border: String(settingsData.auto_active_status ?? '1') === '1' ? '2px solid #2563eb' : '1px solid #e2e8f0',
+                      backgroundColor: String(settingsData.auto_active_status ?? '1') === '1' ? '#eff6ff' : '#f8fafc',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}>
+                      <input
+                        type="radio"
+                        name="auto_active_status"
+                        value="1"
+                        checked={String(settingsData.auto_active_status ?? '1') === '1'}
+                        onChange={(e) => setSettingsData({ ...settingsData, auto_active_status: e.target.value })}
+                        style={{ marginTop: '4px', width: '18px', height: '18px', accentColor: '#2563eb', cursor: 'pointer' }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '1rem', fontWeight: '800', color: '#1e3a8a' }}>ON - Direct Play Game</span>
+                          <span style={{ backgroundColor: '#dbeafe', color: '#1e40af', fontSize: '0.72rem', fontWeight: '800', padding: '2px 8px', borderRadius: '12px' }}>
+                            LIVE GAMING MODE
+                          </span>
+                        </div>
+                        <p style={{ margin: 0, fontSize: '0.84rem', color: '#475569', lineHeight: '1.45' }}>
+                          New registered users immediately access the gaming dashboard, markets, live bidding, and wallet system upon registration.
+                        </p>
+                      </div>
+                    </label>
+
+                    {/* Radio Option 2: OFF (Quiz App Mode) */}
+                    <label style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '16px',
+                      padding: '18px 20px',
+                      borderRadius: '12px',
+                      border: String(settingsData.auto_active_status ?? '1') === '0' ? '2px solid #ea580c' : '1px solid #e2e8f0',
+                      backgroundColor: String(settingsData.auto_active_status ?? '1') === '0' ? '#fff7ed' : '#f8fafc',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}>
+                      <input
+                        type="radio"
+                        name="auto_active_status"
+                        value="0"
+                        checked={String(settingsData.auto_active_status ?? '1') === '0'}
+                        onChange={(e) => setSettingsData({ ...settingsData, auto_active_status: e.target.value })}
+                        style={{ marginTop: '4px', width: '18px', height: '18px', accentColor: '#ea580c', cursor: 'pointer' }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '1rem', fontWeight: '800', color: '#7c2d12' }}>OFF - Quiz App Mode</span>
+                          <span style={{ backgroundColor: '#ffedd5', color: '#9a3412', fontSize: '0.72rem', fontWeight: '800', padding: '2px 8px', borderRadius: '12px' }}>
+                            QUIZ & Q&A DISPLAY
+                          </span>
+                        </div>
+                        <p style={{ margin: 0, fontSize: '0.84rem', color: '#475569', lineHeight: '1.45' }}>
+                          Frontend app displays an interactive Question & Answer Quiz App for users instead of the gaming dashboard.
+                        </p>
+                      </div>
+                    </label>
+
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={settingsLoading}
+                    style={{
+                      backgroundColor: '#2563eb',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '12px 28px',
+                      fontSize: '0.9rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 14px rgba(37, 99, 235, 0.3)',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {settingsLoading ? 'Saving Settings...' : 'Save Auto Active Settings'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
           {/* VIEW: SETTINGS - MAIN SETTINGS (PHP main-settings.php parity) */}
           {activeTab === 'settings' && (
             <div>
@@ -6358,7 +6589,7 @@ const AdminDashboard = ({ setAdminAuth }) => {
                                     fontSize: '0.88rem',
                                     cursor: 'pointer',
                                     display: 'flex',
-                                    justify: 'space-between',
+                                    justifyContent: 'space-between',
                                     alignItems: 'center',
                                     borderBottom: '1px solid #f0f0f0',
                                     backgroundColor: declareOpenPana === p ? '#eef2ff' : '#ffffff'
@@ -6442,7 +6673,7 @@ const AdminDashboard = ({ setAdminAuth }) => {
                                     fontSize: '0.88rem',
                                     cursor: 'pointer',
                                     display: 'flex',
-                                    justify: 'space-between',
+                                    justifyContent: 'space-between',
                                     alignItems: 'center',
                                     borderBottom: '1px solid #f0f0f0',
                                     backgroundColor: declareClosePana === p ? '#eef2ff' : '#ffffff'
@@ -7831,89 +8062,171 @@ const AdminDashboard = ({ setAdminAuth }) => {
       )}
 
       {/* Withdraw Request Detail Modal */}
-      {selectedWithdrawModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999
-        }}>
-          <div style={{ backgroundColor: '#ffffff', color: '#495057', width: '460px', borderRadius: '8px', padding: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h5 style={{ margin: 0, color: '#343a40', fontWeight: 'bold', fontSize: '1.05rem' }}>Withdraw Request Detail</h5>
-              <span style={{ cursor: 'pointer', fontSize: '1.3rem', color: '#74788d', lineHeight: 1 }} onClick={() => setSelectedWithdrawModal(null)}>✕</span>
-            </div>
+      {selectedWithdrawModal && (() => {
+        const uData = modalUserData || {};
+        const userName = uData.name || selectedWithdrawModal.user_name || selectedWithdrawModal.username || 'User';
+        const userPhone = uData.phone || selectedWithdrawModal.username || selectedWithdrawModal.phone || 'N/A';
+        const phonePay = uData.phonepay || uData.phonepe || uData.phonpe || selectedWithdrawModal.phonepay || selectedWithdrawModal.phonepe || selectedWithdrawModal.phonpe || '';
+        const gPay = uData.googlepay || uData.gpay || selectedWithdrawModal.googlepay || selectedWithdrawModal.gpay || '';
+        const paytm = uData.paytm || uData.upi_id || uData.upi || selectedWithdrawModal.paytm || selectedWithdrawModal.upi_id || selectedWithdrawModal.upi || '';
+        const bankName = uData.bank_name || selectedWithdrawModal.bank_name || '';
+        const holderName = uData.account_holder_name || selectedWithdrawModal.account_holder_name || '';
+        const accNo = uData.account_number || selectedWithdrawModal.account_number || '';
+        const ifsc = uData.ifsc_code || selectedWithdrawModal.ifsc_code || '';
+        const branch = uData.branch_name || selectedWithdrawModal.branch_name || '';
+        const walletBal = uData.wallet !== undefined ? uData.wallet : selectedWithdrawModal.wallet;
 
-            <div style={{ backgroundColor: '#f8f9fa', padding: '16px', borderRadius: '6px', border: '1px solid #e9ecef', marginBottom: '18px', fontSize: '0.88rem' }}>
-              <p style={{ margin: '6px 0' }}><strong style={{ minWidth: '120px', display: 'inline-block', color: '#343a40' }}>Request No:</strong> #{selectedWithdrawModal.id}</p>
-              <p style={{ margin: '6px 0' }}><strong style={{ minWidth: '120px', display: 'inline-block', color: '#343a40' }}>User Name:</strong> {selectedWithdrawModal.user_name || selectedWithdrawModal.username}</p>
-              <p style={{ margin: '6px 0' }}><strong style={{ minWidth: '120px', display: 'inline-block', color: '#343a40' }}>Mobile:</strong> {selectedWithdrawModal.username}</p>
-              <p style={{ margin: '6px 0' }}><strong style={{ minWidth: '120px', display: 'inline-block', color: '#343a40' }}>Amount:</strong> <span style={{ color: '#f46a6a', fontWeight: 'bold', fontSize: '1.05rem' }}>₹{selectedWithdrawModal.points}</span></p>
-              <p style={{ margin: '6px 0' }}><strong style={{ minWidth: '120px', display: 'inline-block', color: '#343a40' }}>Date:</strong> {selectedWithdrawModal.date}</p>
-              <p style={{ margin: '6px 0' }}>
-                <strong style={{ minWidth: '120px', display: 'inline-block', color: '#343a40' }}>Status:</strong>
-                {(selectedWithdrawModal.status === '1' || selectedWithdrawModal.status === 1) && (
-                  <span style={{ backgroundColor: '#def7ec', color: '#03543f', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', marginLeft: '6px' }}>Accepted</span>
-                )}
-                {(selectedWithdrawModal.status === '0' || selectedWithdrawModal.status === 0) && (
-                  <span style={{ backgroundColor: '#e1effe', color: '#1e429f', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', marginLeft: '6px' }}>Pending</span>
-                )}
-                {(selectedWithdrawModal.status === '-1' || selectedWithdrawModal.status === -1) && (
-                  <span style={{ backgroundColor: '#fde8e8', color: '#9b1c1c', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', marginLeft: '6px' }}>Rejected</span>
-                )}
-              </p>
-            </div>
+        const reqRemark = selectedWithdrawModal.remark || '';
+        const isPhonePeReq = reqRemark.toLowerCase().includes('phonepe') || reqRemark.toLowerCase().includes('phonepay');
+        const isGPayReq = reqRemark.toLowerCase().includes('gpay') || reqRemark.toLowerCase().includes('googlepay') || reqRemark.toLowerCase().includes('google pay');
+        const isPaytmReq = reqRemark.toLowerCase().includes('paytm');
 
-            {/* Bank & Payout Details Box inside Modal */}
-            <div style={{ backgroundColor: '#edf2f7', padding: '14px', borderRadius: '6px', border: '1px solid #cbd5e0', marginBottom: '18px', fontSize: '0.85rem' }}>
-              <h6 style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#2d3748', fontWeight: 'bold' }}>🏦 User Bank & Payout Details</h6>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                <p style={{ margin: '3px 0' }}><strong>Bank Name:</strong> {selectedWithdrawModal.bank_name || 'N/A'}</p>
-                <p style={{ margin: '3px 0' }}><strong>A/C Holder:</strong> {selectedWithdrawModal.account_holder_name || 'N/A'}</p>
-                <p style={{ margin: '3px 0' }}><strong>A/C Number:</strong> <span style={{ fontFamily: 'monospace', color: '#556ee6', fontWeight: 'bold' }}>{selectedWithdrawModal.account_number || 'N/A'}</span></p>
-                <p style={{ margin: '3px 0' }}><strong>IFSC Code:</strong> {selectedWithdrawModal.ifsc_code || 'N/A'}</p>
-                <p style={{ margin: '3px 0' }}><strong>Branch:</strong> {selectedWithdrawModal.branch_name || 'N/A'}</p>
-                <p style={{ margin: '3px 0' }}><strong>Paytm:</strong> {selectedWithdrawModal.paytm || 'N/A'}</p>
-                <p style={{ margin: '3px 0' }}><strong>PhonePe:</strong> {selectedWithdrawModal.phonepay || 'N/A'}</p>
-                <p style={{ margin: '3px 0' }}><strong>GPay:</strong> {selectedWithdrawModal.googlepay || 'N/A'}</p>
+        const displayPhonePay = phonePay || (isPhonePeReq ? `${userPhone} (Registered Mobile)` : '');
+        const displayGPay = gPay || (isGPayReq ? `${userPhone} (Registered Mobile)` : '');
+        const displayPaytm = paytm || (isPaytmReq ? `${userPhone} (Registered Mobile)` : '');
+
+        return (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999
+          }}>
+            <div style={{
+              backgroundColor: '#ffffff',
+              color: '#333333',
+              width: '520px',
+              maxWidth: '92vw',
+              borderRadius: '12px',
+              padding: '24px',
+              boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
+                <div>
+                  <h5 style={{ margin: 0, color: '#1a202c', fontWeight: '800', fontSize: '1.1rem' }}>Withdraw Request Detail</h5>
+                  <span style={{ fontSize: '0.78rem', color: '#718096' }}>Request #{selectedWithdrawModal.id}</span>
+                </div>
+                <span style={{ cursor: 'pointer', fontSize: '1.4rem', color: '#a0aec0', lineHeight: 1 }} onClick={() => setSelectedWithdrawModal(null)}>✕</span>
               </div>
-            </div>
 
-            {(selectedWithdrawModal.status === '0' || selectedWithdrawModal.status === 0) ? (
-              <div style={{ display: 'flex', gap: '10px' }}>
+              {modalUserLoading && (
+                <div style={{ textAlign: 'center', padding: '6px', fontSize: '0.82rem', color: '#556ee6' }}>
+                  Fetching live user payment details...
+                </div>
+              )}
+
+              {/* Request Info Box */}
+              <div style={{ backgroundColor: '#f7fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '16px', fontSize: '0.88rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px' }}>
+                  <p style={{ margin: 0 }}><strong style={{ color: '#4a5568' }}>User Name:</strong> <span style={{ color: '#2d3748', fontWeight: '700' }}>{userName}</span></p>
+                  <p style={{ margin: 0 }}><strong style={{ color: '#4a5568' }}>Mobile:</strong> <span style={{ color: '#2d3748', fontWeight: '700' }}>{userPhone}</span></p>
+                  <p style={{ margin: 0 }}><strong style={{ color: '#4a5568' }}>Requested Amount:</strong> <span style={{ color: '#e53e3e', fontWeight: '800', fontSize: '1.05rem' }}>₹{selectedWithdrawModal.points}</span></p>
+                  {walletBal !== undefined && (
+                    <p style={{ margin: 0 }}><strong style={{ color: '#4a5568' }}>Wallet Balance:</strong> <span style={{ color: '#38a169', fontWeight: '700' }}>₹{walletBal}</span></p>
+                  )}
+                  <p style={{ margin: 0 }}><strong style={{ color: '#4a5568' }}>Date:</strong> <span style={{ color: '#2d3748' }}>{selectedWithdrawModal.date}</span></p>
+                  <p style={{ margin: 0 }}>
+                    <strong style={{ color: '#4a5568' }}>Status: </strong>
+                    {(selectedWithdrawModal.status === '1' || selectedWithdrawModal.status === 1) && (
+                      <span style={{ backgroundColor: '#c6f6d5', color: '#22543d', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>Accepted</span>
+                    )}
+                    {(selectedWithdrawModal.status === '0' || selectedWithdrawModal.status === 0) && (
+                      <span style={{ backgroundColor: '#feebc8', color: '#744210', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>Pending</span>
+                    )}
+                    {(selectedWithdrawModal.status === '-1' || selectedWithdrawModal.status === -1) && (
+                      <span style={{ backgroundColor: '#fed7d7', color: '#742a2a', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>Rejected</span>
+                    )}
+                  </p>
+                </div>
+                {selectedWithdrawModal.remark && (
+                  <p style={{ margin: '8px 0 0 0', borderTop: '1px dashed #cbd5e0', paddingTop: '6px' }}>
+                    <strong style={{ color: '#4a5568' }}>Remark / Method:</strong> <span style={{ color: '#2b6cb0', fontWeight: '600' }}>{selectedWithdrawModal.remark}</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Bank & UPI Payment Details Box */}
+              <div style={{ backgroundColor: '#edf2f7', padding: '16px', borderRadius: '8px', border: '1px solid #cbd5e0', marginBottom: '18px', fontSize: '0.85rem' }}>
+                <h6 style={{ margin: '0 0 12px 0', fontSize: '0.92rem', color: '#1a202c', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  💳 User Payout & Payment Details
+                </h6>
+
+                {/* UPI Section */}
+                <div style={{ backgroundColor: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '10px' }}>
+                  <div style={{ fontWeight: '700', color: '#2b6cb0', marginBottom: '6px', fontSize: '0.82rem' }}>⚡ UPI Payment IDs</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '6px' }}>
+                    <p style={{ margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <strong style={{ color: '#4a5568' }}>PhonePe:</strong>
+                      <span style={{ fontWeight: '700', color: displayPhonePay ? '#2b6cb0' : '#a0aec0' }}>
+                        {displayPhonePay || 'Not Added'}
+                      </span>
+                    </p>
+                    <p style={{ margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <strong style={{ color: '#4a5568' }}>Google Pay:</strong>
+                      <span style={{ fontWeight: '700', color: displayGPay ? '#2b6cb0' : '#a0aec0' }}>
+                        {displayGPay || 'Not Added'}
+                      </span>
+                    </p>
+                    <p style={{ margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <strong style={{ color: '#4a5568' }}>Paytm:</strong>
+                      <span style={{ fontWeight: '700', color: displayPaytm ? '#2b6cb0' : '#a0aec0' }}>
+                        {displayPaytm || 'Not Added'}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Bank Account Details Section */}
+                <div style={{ backgroundColor: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontWeight: '700', color: '#2c5282', marginBottom: '6px', fontSize: '0.82rem' }}>🏦 Bank Account Details</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                    <p style={{ margin: 0 }}><strong style={{ color: '#4a5568' }}>Bank Name:</strong> {bankName || 'Not Added'}</p>
+                    <p style={{ margin: 0 }}><strong style={{ color: '#4a5568' }}>A/C Holder:</strong> {holderName || 'Not Added'}</p>
+                    <p style={{ margin: 0 }}><strong style={{ color: '#4a5568' }}>A/C Number:</strong> <span style={{ fontFamily: 'monospace', color: '#3182ce', fontWeight: 'bold' }}>{accNo || 'Not Added'}</span></p>
+                    <p style={{ margin: 0 }}><strong style={{ color: '#4a5568' }}>IFSC Code:</strong> <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{ifsc || 'Not Added'}</span></p>
+                    <p style={{ margin: 0, gridColumn: '1 / -1' }}><strong style={{ color: '#4a5568' }}>Branch:</strong> {branch || 'Not Added'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {(selectedWithdrawModal.status === '0' || selectedWithdrawModal.status === 0) ? (
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleWithRequestAction(selectedWithdrawModal.id, 'approve')}
+                    style={{ flex: 1, padding: '12px', backgroundColor: '#38a169', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '700', fontSize: '0.95rem' }}
+                  >
+                    ✓ Approve Payout
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleWithRequestAction(selectedWithdrawModal.id, 'reject')}
+                    style={{ flex: 1, padding: '12px', backgroundColor: '#e53e3e', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '700', fontSize: '0.95rem' }}
+                  >
+                    ✕ Reject & Refund
+                  </button>
+                </div>
+              ) : (
                 <button
                   type="button"
-                  onClick={() => handleWithRequestAction(selectedWithdrawModal.id, 'approve')}
-                  style={{ flex: 1, padding: '10px', backgroundColor: '#28a745', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '600' }}
+                  onClick={() => setSelectedWithdrawModal(null)}
+                  style={{ width: '100%', padding: '10px', backgroundColor: '#4a5568', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}
                 >
-                  Approve
+                  Close
                 </button>
-                <button
-                  type="button"
-                  onClick={() => handleWithRequestAction(selectedWithdrawModal.id, 'reject')}
-                  style={{ flex: 1, padding: '10px', backgroundColor: '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '600' }}
-                >
-                  Reject
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setSelectedWithdrawModal(null)}
-                style={{ width: '100%', padding: '10px', backgroundColor: '#556ee6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '600' }}
-              >
-                Close
-              </button>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Add Game Modal (PHP game-name.php parity) */}
       {showAddGameModal && (

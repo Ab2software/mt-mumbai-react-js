@@ -3,6 +3,14 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Coins, TrendingUp, Sparkles, ShieldAlert, CheckCircle2, Wallet, Layers } from 'lucide-react';
 import api from '../utils/api';
 import MaterialDialog from '../components/common/MaterialDialog';
+import SearchableSelect, {
+  SINGLE_DIGITS,
+  JODI_DIGITS,
+  SINGLE_PANAS,
+  DOUBLE_PANAS,
+  TRIPLE_PANAS,
+  ALL_PANAS
+} from '../components/common/SearchableSelect';
 
 const PlayGame = () => {
   const [searchParams] = useSearchParams();
@@ -310,6 +318,7 @@ const PlayGame = () => {
         const successMsg = `Your bid of ₹${bidPoints} on ${gameName} (${selectedType}) was placed successfully!`;
         setSuccess('Bid placed successfully!');
         setWallet(response.data.balance);
+        window.dispatchEvent(new CustomEvent('wallet_updated', { detail: { balance: response.data.balance } }));
         setPoints('');
         setSingleDigit('');
         setJodiDigit('');
@@ -510,52 +519,82 @@ const PlayGame = () => {
               </div>
             )}
 
-            {/* Dynamic Inputs */}
+            {/* Dynamic Inputs with Searchable Dropdowns */}
             {selectedType === 'Single Digit' && (
               <div className="form-group">
-                <label className="form-label">Single Digit (0-9)</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  maxLength="1"
-                  placeholder="Enter single number" 
-                  value={singleDigit} 
-                  onChange={(e) => setSingleDigit(e.target.value.replace(/\D/g, ''))}
+                <SearchableSelect
+                  label="Single Digit (0-9)"
+                  placeholder="Select or search single digit (0-9)"
+                  options={SINGLE_DIGITS}
+                  value={singleDigit}
+                  onChange={setSingleDigit}
                   required
+                  maxLength={1}
                 />
               </div>
             )}
 
             {selectedType === 'Jodi Digit' && (
               <div className="form-group">
-                <label className="form-label">Jodi Digit (00-99)</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  maxLength="2"
-                  placeholder="Enter 2 digit number" 
-                  value={jodiDigit} 
-                  onChange={(e) => setJodiDigit(e.target.value.replace(/\D/g, ''))}
+                <SearchableSelect
+                  label="Jodi Digit (00-99)"
+                  placeholder="Select or search jodi digit (00-99)"
+                  options={JODI_DIGITS}
+                  value={jodiDigit}
+                  onChange={setJodiDigit}
                   required
+                  maxLength={2}
                 />
               </div>
             )}
 
-            {(selectedType === 'Single Pana' || selectedType === 'Double Pana' || selectedType === 'Triple Pana') && (
+            {selectedType === 'Single Pana' && (
               <div className="form-group">
-                <label className="form-label">{session} Pana (3 Digits)</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  maxLength="3"
-                  placeholder="Enter 3 digit pana" 
+                <SearchableSelect
+                  label={`${session} Single Pana (3 Digits)`}
+                  placeholder="Select or search single pana"
+                  options={SINGLE_PANAS}
                   value={session === 'Open' ? openPana : closePana}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, '');
+                  onChange={(val) => {
                     if (session === 'Open') setOpenPana(val);
                     else setClosePana(val);
                   }}
                   required
+                  maxLength={3}
+                />
+              </div>
+            )}
+
+            {selectedType === 'Double Pana' && (
+              <div className="form-group">
+                <SearchableSelect
+                  label={`${session} Double Pana (3 Digits)`}
+                  placeholder="Select or search double pana"
+                  options={DOUBLE_PANAS}
+                  value={session === 'Open' ? openPana : closePana}
+                  onChange={(val) => {
+                    if (session === 'Open') setOpenPana(val);
+                    else setClosePana(val);
+                  }}
+                  required
+                  maxLength={3}
+                />
+              </div>
+            )}
+
+            {selectedType === 'Triple Pana' && (
+              <div className="form-group">
+                <SearchableSelect
+                  label={`${session} Triple Pana (3 Digits)`}
+                  placeholder="Select or search triple pana"
+                  options={TRIPLE_PANAS}
+                  value={session === 'Open' ? openPana : closePana}
+                  onChange={(val) => {
+                    if (session === 'Open') setOpenPana(val);
+                    else setClosePana(val);
+                  }}
+                  required
+                  maxLength={3}
                 />
               </div>
             )}
@@ -563,27 +602,25 @@ const PlayGame = () => {
             {selectedType === 'Half Sangam' && (
               <div className="grid-cols-2">
                 <div className="form-group">
-                  <label className="form-label">Open Digit</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    maxLength="1"
-                    placeholder="Digit" 
-                    value={singleDigit} 
-                    onChange={(e) => setSingleDigit(e.target.value.replace(/\D/g, ''))}
+                  <SearchableSelect
+                    label="Open Digit"
+                    placeholder="Select digit"
+                    options={SINGLE_DIGITS}
+                    value={singleDigit}
+                    onChange={setSingleDigit}
                     required
+                    maxLength={1}
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Close Pana</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    maxLength="3"
-                    placeholder="Pana" 
-                    value={closePana} 
-                    onChange={(e) => setClosePana(e.target.value.replace(/\D/g, ''))}
+                  <SearchableSelect
+                    label="Close Pana"
+                    placeholder="Select pana"
+                    options={ALL_PANAS}
+                    value={closePana}
+                    onChange={setClosePana}
                     required
+                    maxLength={3}
                   />
                 </div>
               </div>
@@ -592,31 +629,30 @@ const PlayGame = () => {
             {selectedType === 'Full Sangam' && (
               <div className="grid-cols-2">
                 <div className="form-group">
-                  <label className="form-label">Open Pana</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    maxLength="3"
-                    placeholder="Open Pana" 
-                    value={openPana} 
-                    onChange={(e) => setOpenPana(e.target.value.replace(/\D/g, ''))}
+                  <SearchableSelect
+                    label="Open Pana"
+                    placeholder="Select open pana"
+                    options={ALL_PANAS}
+                    value={openPana}
+                    onChange={setOpenPana}
                     required
+                    maxLength={3}
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Close Pana</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    maxLength="3"
-                    placeholder="Close Pana" 
-                    value={closePana} 
-                    onChange={(e) => setClosePana(e.target.value.replace(/\D/g, ''))}
+                  <SearchableSelect
+                    label="Close Pana"
+                    placeholder="Select close pana"
+                    options={ALL_PANAS}
+                    value={closePana}
+                    onChange={setClosePana}
                     required
+                    maxLength={3}
                   />
                 </div>
               </div>
             )}
+
 
             {/* Bid points */}
             <div className="form-group" style={{ marginBottom: '24px' }}>

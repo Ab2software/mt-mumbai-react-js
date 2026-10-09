@@ -106,6 +106,7 @@ const DepositRequestStatus = () => {
               </label>
               <input
                 type="date"
+                className="dark-date-input"
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
                 style={{
@@ -127,6 +128,7 @@ const DepositRequestStatus = () => {
               </label>
               <input
                 type="date"
+                className="dark-date-input"
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
                 style={{

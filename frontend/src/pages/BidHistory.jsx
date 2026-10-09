@@ -218,7 +218,7 @@ const BidHistory = () => {
               </label>
               <input
                 type="date"
-                className="form-input"
+                className="form-input dark-date-input"
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
                 style={{ padding: '8px 12px', fontSize: '0.88rem' }}
@@ -230,7 +230,7 @@ const BidHistory = () => {
               </label>
               <input
                 type="date"
-                className="form-input"
+                className="form-input dark-date-input"
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
                 style={{ padding: '8px 12px', fontSize: '0.88rem' }}

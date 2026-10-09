@@ -1,11 +1,5 @@
 const db = require('../config/db');
-
-// Get current Date & Time in India Standard Time (Asia/Kolkata / UTC+5:30)
-function getISTDate() {
-  const now = new Date();
-  const istString = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
-  return new Date(istString);
-}
+const { getISTDate, getISTDateStr, getISTTimeStr } = require('../utils/istDate');
 
 // Helper to convert time format "hh:mm AM/PM" or "hh:mm" to Date object using IST date reference
 function getTodayTime(timeStr, refISTDate = getISTDate()) {
@@ -269,11 +263,8 @@ exports.placeBid = async (req, res) => {
       }
 
       // Insert bid with IST date and time
-      const yyyy = nowIST.getFullYear();
-      const mm = String(nowIST.getMonth() + 1).padStart(2, '0');
-      const dd = String(nowIST.getDate()).padStart(2, '0');
-      const currentDateStr = `${yyyy}-${mm}-${dd}`;
-      const currentTimeStr = nowIST.toTimeString().slice(0, 8);
+      const currentDateStr = getISTDateStr(nowIST);
+      const currentTimeStr = getISTTimeStr(nowIST);
 
       const [insertResult] = await db.query(
         "INSERT INTO user_bid_history (username, game_name, game_type, session, open_pana, open_digit, close_pana, close_digit, points_action, date, time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",

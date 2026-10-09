@@ -668,6 +668,7 @@ h1, h2, h3, h4, h5, h6 {
 
 @media (max-width: 768px) {
   .bottom-nav-container {
+    position: fixed !important;
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
@@ -679,35 +680,58 @@ h1, h2, h3, h4, h5, h6 {
     border-left: none !important;
     border-right: none !important;
     border-bottom: none !important;
-    height: 62px !important;
-    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    height: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+    min-height: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: max(6px, env(safe-area-inset-bottom, 0px)) !important;
+    padding-top: 4px !important;
+    box-sizing: border-box !important;
     background-color: #08111e !important;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5) !important;
   }
 }
 
-/* Fix Native Date & Time Picker Calendar Icon for Dark Theme */
+/* Native Date & Time Picker UI Styling */
 input[type="date"],
 input[type="time"],
 input[type="datetime-local"] {
-  color-scheme: dark;
-  color: #ffffff;
+  color-scheme: light;
+  background-color: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  outline: none;
+  font-family: inherit;
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator,
 input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
-  filter: invert(0.85) sepia(100%) hue-rotate(5deg) saturate(300%) brightness(1.2);
-  opacity: 0.95;
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  filter: none;
+  opacity: 0.7;
   padding: 2px;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator:hover,
 input[type="time"]::-webkit-calendar-picker-indicator:hover,
 input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   opacity: 1;
-  transform: scale(1.15);
+  transform: scale(1.1);
+}
+
+/* Optional Dark Scheme Override for Dark Cards */
+.dark-date-input,
+[data-theme="dark"] input[type="date"] {
+  color-scheme: dark !important;
+  background-color: rgba(0, 0, 0, 0.3) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.dark-date-input::-webkit-calendar-picker-indicator,
+[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.9);
 }
 
 

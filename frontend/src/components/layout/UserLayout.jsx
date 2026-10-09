@@ -5,6 +5,7 @@ import UserNavbar from './UserNavbar';
 import SidebarDrawer from './SidebarDrawer';
 import BottomNav from './BottomNav';
 import LockScreen from './LockScreen';
+import QuizApp from '../../pages/QuizApp';
 import api from '../../utils/api';
 
 const UserLayout = ({ children, setAuth }) => {
@@ -17,8 +18,10 @@ const UserLayout = ({ children, setAuth }) => {
     wallet: '0'
   });
   const [wpNumber, setWpNumber] = useState('');
-  const [mpinStatus, setMpinStatus] = useState('1');
+  const [mpinStatus, setMpinStatus] = useState(() => localStorage.getItem('app_mpin_status') || '0');
+  const [autoActiveStatus, setAutoActiveStatus] = useState('1');
   const [isLocked, setIsLocked] = useState(() => sessionStorage.getItem('mpin_unlocked') !== 'true');
+  const [dataLoading, setDataLoading] = useState(true);
   const navigate = useNavigate();
 
   const loadUserData = async () => {
@@ -44,8 +47,13 @@ const UserLayout = ({ children, setAuth }) => {
         ? String(appInfo.mpin_status)
         : (walletRes?.data?.data?.mpin_status !== undefined && walletRes?.data?.data?.mpin_status !== null)
           ? String(walletRes?.data?.data?.mpin_status)
-          : '1';
+          : '0';
       setMpinStatus(currentMpinStatus);
+      localStorage.setItem('app_mpin_status', currentMpinStatus);
+
+      if (appInfo.auto_active_status !== undefined && appInfo.auto_active_status !== null) {
+        setAutoActiveStatus(String(appInfo.auto_active_status));
+      }
 
       setUserData({
         name: prof.name || localStorage.getItem('name') || 'Gama Player',
@@ -66,6 +74,8 @@ const UserLayout = ({ children, setAuth }) => {
       if (prof.phone) localStorage.setItem('phone', prof.phone);
     } catch (err) {
       console.error('Error loading user layout data:', err);
+    } finally {
+      setDataLoading(false);
     }
   };
 
@@ -73,9 +83,24 @@ const UserLayout = ({ children, setAuth }) => {
     loadUserData();
     const interval = setInterval(loadUserData, 15000); // 15s refresh
 
+    const handleWalletUpdated = (e) => {
+      if (e?.detail?.balance !== undefined) {
+        setUserData(prev => ({ ...prev, wallet: String(e.detail.balance) }));
+      }
+      loadUserData();
+    };
+
     const onThemeChange = () => {
       setThemeColor(localStorage.getItem('auth_theme_color') || 'gold');
     };
+
+    const isMobileDevice = () => {
+      if (typeof window === 'undefined') return false;
+      const ua = navigator.userAgent || navigator.vendor || window.opera || '';
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|wv/i.test(ua) || (window.innerWidth <= 768);
+    };
+
+    let lockTimeoutId = null;
 
     const handleLockTrigger = () => {
       sessionStorage.removeItem('mpin_unlocked');
@@ -83,20 +108,32 @@ const UserLayout = ({ children, setAuth }) => {
     };
 
     const handleVisibilityChange = () => {
+      // Only lock on mobile devices & Android WebViews
+      if (!isMobileDevice()) return;
+
       if (document.visibilityState === 'hidden') {
-        handleLockTrigger();
+        // Debounce lock trigger to prevent nuisance locking when opening native pickers or brief app pauses
+        lockTimeoutId = setTimeout(() => {
+          handleLockTrigger();
+        }, 1500);
+      } else if (document.visibilityState === 'visible') {
+        if (lockTimeoutId) {
+          clearTimeout(lockTimeoutId);
+          lockTimeoutId = null;
+        }
       }
     };
 
+    window.addEventListener('wallet_updated', handleWalletUpdated);
     window.addEventListener('storage', onThemeChange);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('pagehide', handleLockTrigger);
 
     return () => {
+      if (lockTimeoutId) clearTimeout(lockTimeoutId);
       clearInterval(interval);
+      window.removeEventListener('wallet_updated', handleWalletUpdated);
       window.removeEventListener('storage', onThemeChange);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('pagehide', handleLockTrigger);
     };
   }, []);
 
@@ -131,6 +168,38 @@ const UserLayout = ({ children, setAuth }) => {
   const whatsappUrl = cleanWpNumber 
     ? `https://wa.me/${cleanWpNumber.length === 10 ? '91' + cleanWpNumber : cleanWpNumber}?text=${encodeURIComponent(`Hello Support, I need assistance.`)}`
     : `https://wa.me/?text=${encodeURIComponent(`Hello Support, I need assistance.`)}`;
+
+  if (dataLoading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: '#09121f',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#ffffff',
+        padding: '20px'
+      }}>
+        <div style={{
+          width: '46px',
+          height: '46px',
+          borderRadius: '50%',
+          border: '3px solid rgba(214, 190, 102, 0.2)',
+          borderTopColor: 'var(--color-gold, #d6be66)',
+          animation: 'spin 0.8s linear infinite',
+          marginBottom: '16px'
+        }} />
+        <span style={{ fontSize: '0.88rem', color: 'rgba(255, 255, 255, 0.75)', fontWeight: '600' }}>
+          Loading application...
+        </span>
+      </div>
+    );
+  }
+
+  if (String(userData.betting_status) === '0') {
+    return <QuizApp onLogout={handleLogout} wpNumber={wpNumber} />;
+  }
 
   return (
     <div className={`app-theme-${themeColor}`} style={{
@@ -193,7 +262,7 @@ const UserLayout = ({ children, setAuth }) => {
       <main style={{
         flex: 1,
         paddingTop: '64px',
-        paddingBottom: '96px',
+        paddingBottom: 'calc(96px + env(safe-area-inset-bottom, 0px))',
         position: 'relative',
         zIndex: 1
       }}>

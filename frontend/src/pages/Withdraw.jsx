@@ -199,6 +199,9 @@ const Withdraw = () => {
 
       if (res.data.success === '1') {
         setMsg(res.data.msg || 'Withdrawal request submitted successfully!');
+        if (res.data.balance !== undefined) {
+          window.dispatchEvent(new CustomEvent('wallet_updated', { detail: { balance: res.data.balance } }));
+        }
         setAmount('');
         loadData();
       } else {

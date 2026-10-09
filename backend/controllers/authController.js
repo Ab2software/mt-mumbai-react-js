@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const jwt = require('jsonwebtoken');
+const { getISTDateTimeStr, getISTDateStr, getISTTimeStr } = require('../utils/istDate');
 
 // User Registration
 exports.signup = async (req, res) => {
@@ -16,6 +17,7 @@ exports.signup = async (req, res) => {
     try { await db.query(`ALTER TABLE user_info ADD COLUMN email VARCHAR(100) DEFAULT ''`); } catch (e) {}
     try { await db.query(`ALTER TABLE user_info ADD COLUMN wallet VARCHAR(50) DEFAULT '0'`); } catch (e) {}
     try { await db.query(`ALTER TABLE user_info ADD COLUMN status VARCHAR(10) DEFAULT '1'`); } catch (e) {}
+    try { await db.query(`ALTER TABLE user_info ADD COLUMN betting_status VARCHAR(10) DEFAULT '1'`); } catch (e) {}
     try { await db.query(`ALTER TABLE user_info ADD COLUMN transfer_status VARCHAR(10) DEFAULT '0'`); } catch (e) {}
     try { await db.query(`ALTER TABLE user_info ADD COLUMN phonepay VARCHAR(50) DEFAULT ''`); } catch (e) {}
     try { await db.query(`ALTER TABLE user_info ADD COLUMN googlepay VARCHAR(50) DEFAULT ''`); } catch (e) {}
@@ -49,25 +51,32 @@ exports.signup = async (req, res) => {
       status = '1';
     }
 
-    // Get settings like bonus safely
+    // Check auto_active_status & bonus from admin_settings
     let bonus = '0';
+    let initialBettingStatus = '1';
     try {
-      const [settings] = await db.query('SELECT Dragon_bonus FROM admin_settings LIMIT 1');
-      if (settings.length > 0 && settings[0].Dragon_bonus !== undefined && settings[0].Dragon_bonus !== null) {
-        bonus = String(settings[0].Dragon_bonus);
+      const [settings] = await db.query('SELECT Dragon_bonus, auto_active_status FROM admin_settings LIMIT 1');
+      if (settings.length > 0) {
+        if (settings[0].Dragon_bonus !== undefined && settings[0].Dragon_bonus !== null) {
+          bonus = String(settings[0].Dragon_bonus);
+        }
+        if (settings[0].auto_active_status !== undefined && settings[0].auto_active_status !== null) {
+          initialBettingStatus = String(settings[0].auto_active_status) === '0' ? '0' : '1';
+        }
       }
     } catch (e) {
       bonus = '0';
+      initialBettingStatus = '1';
     }
 
     // Insert user
-    const today = new Date().toISOString().slice(0, 19).replace('T', ' '); // YYYY-MM-DD HH:MM:SS
+    const today = getISTDateTimeStr(); // YYYY-MM-DD HH:MM:SS in IST
     let insertResult;
     try {
       const insertSql = `
         INSERT INTO user_info 
-        (name, phone, password, m_pin, email, wallet, date, status, transfer_status, phonepay, googlepay, paytm, referred_by_phone) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, '0', '', '', '', ?)
+        (name, phone, password, m_pin, email, wallet, date, status, betting_status, transfer_status, phonepay, googlepay, paytm, referred_by_phone) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '0', '', '', '', ?)
       `;
       const [resOut] = await db.query(insertSql, [
         user_name,
@@ -78,6 +87,7 @@ exports.signup = async (req, res) => {
         bonus,
         today,
         status,
+        initialBettingStatus,
         referred_by_value
       ]);
       insertResult = resOut;
@@ -85,8 +95,8 @@ exports.signup = async (req, res) => {
       console.warn('Primary insert failed, attempting fallback insert:', insertErr.message);
       const fallbackSql = `
         INSERT INTO user_info 
-        (name, phone, password, m_pin, email, wallet, date, status, transfer_status, phonepay, googlepay, paytm) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, '0', '', '', '')
+        (name, phone, password, m_pin, email, wallet, date, status, betting_status, transfer_status, phonepay, googlepay, paytm) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '0', '', '', '')
       `;
       const [resOut] = await db.query(fallbackSql, [
         user_name,
@@ -96,7 +106,8 @@ exports.signup = async (req, res) => {
         user_email || '',
         bonus,
         today,
-        status
+        status,
+        initialBettingStatus
       ]);
       insertResult = resOut;
     }
@@ -115,8 +126,8 @@ exports.signup = async (req, res) => {
             remark TEXT,
             phone_number VARCHAR(50)
           )`);
-          const currentDateStr = new Date().toISOString().slice(0, 10);
-          const currentTimeStr = new Date().toTimeString().slice(0, 8);
+          const currentDateStr = getISTDateStr();
+          const currentTimeStr = getISTTimeStr();
           await db.query(
             'INSERT INTO wallet_history (status, date, time, amount, updated_amount, remark, phone_number) VALUES (?, ?, ?, ?, ?, ?, ?)',
             ['1', currentDateStr, currentTimeStr, bonus, bonus, 'Welcome Bonus', user_phone]
@@ -321,9 +332,9 @@ exports.getProfile = async (req, res) => {
       name: user.name,
       email: user.email,
       wallet: user.wallet,
-      phonepay: user.phonepay,
-      googlepay: user.googlepay,
-      paytm: user.paytm,
+      phonepay: user.phonepay || user.phonepe || user.phonpe || '',
+      googlepay: user.googlepay || user.gpay || '',
+      paytm: user.paytm || user.upi_id || user.upi || '',
       bank_name: user.bank_name || '',
       branch_name: user.branch_name || '',
       account_holder_name: user.account_holder_name || '',
@@ -349,7 +360,7 @@ exports.getProfile = async (req, res) => {
 // Edit Profile
 exports.editProfile = async (req, res) => {
   const phone = req.user.phone;
-  const { phonpe, gpay, paytm, name, email, bank_name, branch_name, account_holder_name, account_number, ifsc_code } = req.body;
+  const { name, email, bank_name, branch_name, account_holder_name, account_number, ifsc_code } = req.body;
 
   try {
     const [users] = await db.query('SELECT * FROM user_info WHERE phone = ?', [phone]);
@@ -359,18 +370,29 @@ exports.editProfile = async (req, res) => {
 
     const user = users[0];
 
-    const inputPhonepe = req.body.phonepay !== undefined ? req.body.phonepay : req.body.phonpe;
-    const inputGpay = req.body.googlepay !== undefined ? req.body.googlepay : req.body.gpay;
-    const inputPaytm = req.body.paytm;
+    const inputPhonepe = req.body.phonepay || req.body.phonepe || req.body.phonpe || '';
+    const inputGpay = req.body.googlepay || req.body.gpay || '';
+    const inputPaytm = req.body.paytm || req.body.upi_id || req.body.upi || '';
 
-    const finalPhonepay = (inputPhonepe !== undefined && inputPhonepe !== '') ? inputPhonepe : (user.phonepay || '');
-    const finalGooglepay = (inputGpay !== undefined && inputGpay !== '') ? inputGpay : (user.googlepay || '');
-    const finalPaytm = (inputPaytm !== undefined && inputPaytm !== '') ? inputPaytm : (user.paytm || '');
+    const finalPhonepay = inputPhonepe.trim() !== '' ? inputPhonepe.trim() : (user.phonepay || user.phonepe || user.phonpe || '');
+    const finalGooglepay = inputGpay.trim() !== '' ? inputGpay.trim() : (user.googlepay || user.gpay || '');
+    const finalPaytm = inputPaytm.trim() !== '' ? inputPaytm.trim() : (user.paytm || user.upi_id || user.upi || '');
+
+    try { await db.query('ALTER TABLE user_info ADD COLUMN phonepe VARCHAR(100) DEFAULT ""'); } catch (e) {}
+    try { await db.query('ALTER TABLE user_info ADD COLUMN phonpe VARCHAR(100) DEFAULT ""'); } catch (e) {}
+    try { await db.query('ALTER TABLE user_info ADD COLUMN gpay VARCHAR(100) DEFAULT ""'); } catch (e) {}
+    try { await db.query('ALTER TABLE user_info ADD COLUMN upi_id VARCHAR(100) DEFAULT ""'); } catch (e) {}
+    try { await db.query('ALTER TABLE user_info ADD COLUMN upi VARCHAR(100) DEFAULT ""'); } catch (e) {}
 
     const fields = {
       phonepay: finalPhonepay,
+      phonepe: finalPhonepay,
+      phonpe: finalPhonepay,
       googlepay: finalGooglepay,
-      paytm: finalPaytm
+      gpay: finalGooglepay,
+      paytm: finalPaytm,
+      upi_id: finalPaytm,
+      upi: finalPaytm
     };
 
     if (bank_name !== undefined) fields.bank_name = bank_name;

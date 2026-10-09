@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { getISTDate, getISTDateStr, getISTTimeStr, getISTTime12h, getISTDateTimeStr } = require('../utils/istDate');
 
 // Helper: Deduct Admin Coins (Disabled - direct deposit without coin requirement)
 async function deductAdminCoins(amount) {
@@ -12,7 +13,7 @@ exports.getDashboardMetrics = async (req, res) => {
     const [[{ unapproved_users }]] = await db.query("SELECT COUNT(*) as unapproved_users FROM user_info WHERE status = '0'");
     const [[{ approved_users }]] = await db.query("SELECT COUNT(*) as approved_users FROM user_info WHERE status = '1'");
     const [[{ total_games }]] = await db.query('SELECT COUNT(DISTINCT game) as total_games FROM game_time');
-    const [[{ today_bid_amount }]] = await db.query('SELECT SUM(points_action) as today_bid_amount FROM user_bid_history WHERE date = CURDATE()');
+    const [[{ today_bid_amount }]] = await db.query('SELECT SUM(points_action) as today_bid_amount FROM user_bid_history WHERE date = ?', [getISTDateStr()]);
 
     const [[{ total_bids }]] = await db.query('SELECT COUNT(*) as total_bids FROM user_bid_history');
     const [[{ total_withdrawals }]] = await db.query("SELECT SUM(points) as total_withdrawals FROM user_withdraw_request WHERE status = '1'");
@@ -294,12 +295,12 @@ exports.getWithdrawRequests = async (req, res) => {
         u.phonepay,
         u.googlepay
       FROM user_withdraw_request w
-      LEFT JOIN user_info u ON (w.username = u.phone OR w.user_name = u.phone)
+      LEFT JOIN user_info u ON (w.username = u.phone OR w.user_name = u.phone OR RIGHT(w.username, 10) = RIGHT(u.phone, 10))
     `;
 
     if (page && limit) {
       const offset = (page - 1) * limit;
-      const [countRes] = await db.query(`SELECT COUNT(*) as total FROM user_withdraw_request w LEFT JOIN user_info u ON (w.username = u.phone OR w.user_name = u.phone) ${whereClause}`, params);
+      const [countRes] = await db.query(`SELECT COUNT(*) as total FROM user_withdraw_request w LEFT JOIN user_info u ON (w.username = u.phone OR w.user_name = u.phone OR RIGHT(w.username, 10) = RIGHT(u.phone, 10)) ${whereClause}`, params);
       const total = countRes[0]?.total || 0;
 
       const [withdrawals] = await db.query(`${selectQuery} ${whereClause} ORDER BY w.id DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
@@ -343,41 +344,23 @@ exports.approveWithdrawal = async (req, res) => {
     const phone = reqRow.username;
     const amount = parseFloat(reqRow.points || reqRow.amount || '0');
 
-    const [users] = await db.query('SELECT wallet FROM user_info WHERE phone = ?', [phone]);
-    if (users.length === 0) {
-      return res.json({ success: '0', msg: 'User not found' });
-    }
+    const walletRemark = remark || `${amount}₹ Withdrawal Approved!`;
 
-    const wallet = parseFloat(users[0].wallet || '0');
-    const updatedWallet = wallet - amount;
-
-    if (updatedWallet < 0) {
-      return res.json({ success: '0', msg: `Insufficient Funds in User Wallet! Current Balance: ₹${wallet}, Requested: ₹${amount}` });
-    }
-
-    // Deduct wallet balance
-    await db.query('UPDATE user_info SET wallet = ? WHERE phone = ?', [updatedWallet, phone]);
-
-    const currentDateStr = new Date().toISOString().slice(0, 10);
-    const currentTimeStr = new Date().toTimeString().slice(0, 8);
-    const walletRemark = remark || `${amount}₹ Transferred to your Account!`;
-
+    // Update status to '1' (approved) - points were already deducted when user placed withdrawal request
+    await db.query("UPDATE user_withdraw_request SET status = '1', remark = ? WHERE id = ?", [walletRemark, withdrawId]);
     await db.query(
-      'INSERT INTO wallet_history (status, date, time, amount, updated_amount, remark, phone_number) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      ['1', currentDateStr, currentTimeStr, `-${amount}`, updatedWallet, walletRemark, phone]
+      "UPDATE wallet_history SET status = '1', remark = ? WHERE phone_number = ? AND status = '0' AND (remark LIKE '%Withdrawal%' OR remark LIKE '%withdraw%') ORDER BY id DESC LIMIT 1",
+      [walletRemark, phone]
     );
 
-    // Update status to '1' (approved)
-    await db.query("UPDATE user_withdraw_request SET status = '1', remark = ? WHERE id = ?", [walletRemark, withdrawId]);
-
-    return res.json({ success: '1', msg: 'Withdraw request approved and points deducted successfully!' });
+    return res.json({ success: '1', msg: 'Withdraw request approved successfully!' });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ success: '0', error: err.message });
   }
 };
 
-// Reject Withdrawal Request
+// Reject Withdrawal Request (Refunds points back to user wallet)
 exports.rejectWithdrawal = async (req, res) => {
   const withdrawId = req.body.withdrawId || req.body.requestId || req.body.id;
   const remark = req.body.remark || 'Rejected by Admin';
@@ -387,20 +370,45 @@ exports.rejectWithdrawal = async (req, res) => {
   }
 
   try {
-    const [updateResult] = await db.query(
-      "UPDATE user_withdraw_request SET status = '-1', remark = ? WHERE id = ? AND (status = '0' OR status = 0)",
-      [remark, withdrawId]
+    const [requests] = await db.query(
+      'SELECT * FROM user_withdraw_request WHERE id = ? AND (status = "0" OR status = 0)',
+      [withdrawId]
     );
-    if (updateResult.affectedRows > 0) {
-      return res.json({ success: '1', msg: 'Withdraw request rejected successfully' });
-    } else {
-      return res.json({ success: '0', msg: 'Withdraw request not found or already processed' });
+
+    if (requests.length === 0) {
+      return res.json({ success: '0', msg: 'Withdrawal request not found or already processed' });
     }
+
+    const reqRow = requests[0];
+    const phone = reqRow.username;
+    const amount = parseFloat(reqRow.points || reqRow.amount || '0');
+
+    // Refund points back to user wallet
+    await db.query('UPDATE user_info SET wallet = wallet + ? WHERE phone = ?', [amount, phone]);
+    const [[user]] = await db.query('SELECT wallet FROM user_info WHERE phone = ?', [phone]);
+    const updatedWallet = user ? user.wallet : 0;
+
+    const currentDateStr = getISTDateStr();
+    const currentTimeStr = getISTTimeStr();
+    const walletRemark = `Withdrawal Rejected (${remark}) - Refunded`;
+
+    await db.query(
+      'INSERT INTO wallet_history (status, date, time, amount, updated_amount, remark, phone_number) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      ['1', currentDateStr, currentTimeStr, `+${amount}`, updatedWallet, walletRemark, phone]
+    );
+
+    await db.query(
+      "UPDATE user_withdraw_request SET status = '-1', remark = ? WHERE id = ?",
+      [walletRemark, withdrawId]
+    );
+
+    return res.json({ success: '1', msg: 'Withdraw request rejected & points refunded successfully!' });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ success: '0', error: err.message });
   }
 };
+
 
 // Helper: Calculate win amounts based on rates
 async function processWinners(con, gameName, date, queryStr, params, winType, winRemark, openPanaVal, openDigitVal, closePanaVal, closeDigitVal, session) {
@@ -413,8 +421,8 @@ async function processWinners(con, gameName, date, queryStr, params, winType, wi
 
   const rateVal = parseFloat(rates[0].max_value) / parseFloat(rates[0].min_value);
 
-  const currentDateStr = new Date().toISOString().slice(0, 10);
-  const currentTimeStr = new Date().toTimeString().slice(0, 8);
+  const currentDateStr = getISTDateStr();
+  const currentTimeStr = getISTTimeStr();
 
   for (const b of bids) {
     const phone = b.username;
@@ -599,8 +607,8 @@ exports.deleteDeclaredResult = async (req, res) => {
     const [winners] = await db.query(winQuery, winParams);
 
     // 2. Revert wallet balances for each winner
-    const currentDateStr = new Date().toISOString().slice(0, 10);
-    const currentTimeStr = new Date().toTimeString().slice(0, 8);
+    const currentDateStr = getISTDateStr();
+    const currentTimeStr = getISTTimeStr();
 
     for (const w of winners) {
       const phone = w.username;
@@ -793,8 +801,8 @@ exports.deleteBidHistory = async (req, res) => {
       if (amount > 0 && user) {
         await db.query('UPDATE user_info SET wallet = wallet + ? WHERE phone = ?', [amount, user]);
         const [[u]] = await db.query('SELECT wallet FROM user_info WHERE phone = ?', [user]);
-        const today = new Date().toISOString().split('T')[0];
-        const time = new Date().toLocaleTimeString('en-US', { hour12: true });
+        const today = getISTDateStr();
+        const time = getISTTime12h();
         const remarkStr = `Bid Cancelled & Refunded for ${b.game_name || ''} (${b.game_type || ''})`;
         await db.query(
           'INSERT INTO wallet_history (status, date, time, amount, updated_amount, remark, phone_number) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -857,7 +865,8 @@ exports.updateSettings = async (req, res) => {
       mpin_status,
       slider_status,
       referral_status,
-      referral_type
+      referral_type,
+      auto_active_status
     } = body;
 
     // Helper for bool/int values
@@ -875,6 +884,9 @@ exports.updateSettings = async (req, res) => {
     } catch (e) {}
     try {
       await db.query(`ALTER TABLE admin_settings ADD COLUMN app_link TEXT`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE admin_settings ADD COLUMN auto_active_status VARCHAR(10) DEFAULT '1'`);
     } catch (e) {}
 
     const upiVal = (payment_upi_id !== undefined || upi_payment_id !== undefined) ? (payment_upi_id || upi_payment_id || '') : undefined;
@@ -909,7 +921,8 @@ exports.updateSettings = async (req, res) => {
         mpin_status = COALESCE(?, mpin_status),
         slider_status = COALESCE(?, slider_status),
         referral_status = COALESCE(?, referral_status),
-        referral_type = COALESCE(?, referral_type)
+        referral_type = COALESCE(?, referral_type),
+        auto_active_status = COALESCE(?, auto_active_status)
        WHERE id = 1`,
       [
         ac_name !== undefined ? ac_name : null,
@@ -939,7 +952,8 @@ exports.updateSettings = async (req, res) => {
         mpin_status !== undefined && mpin_status !== null ? String(mpin_status) : null,
         slider_status !== undefined && slider_status !== null ? String(slider_status) : null,
         referral_status !== undefined && referral_status !== null ? String(referral_status) : null,
-        referral_type !== undefined && referral_type !== null ? String(referral_type) : null
+        referral_type !== undefined && referral_type !== null ? String(referral_type) : null,
+        auto_active_status !== undefined && auto_active_status !== null ? String(auto_active_status) : null
       ]
     );
 
@@ -1295,8 +1309,8 @@ exports.approveCommission = async (req, res) => {
         const { referrer_phone, amount } = comm[0];
         await db.query('UPDATE user_referral_commission SET status = "1" WHERE id = ?', [id]);
         await db.query('UPDATE user_info SET wallet = wallet + ? WHERE phone = ?', [amount, referrer_phone]);
-        const today = new Date().toISOString().slice(0, 10);
-        const time = new Date().toTimeString().slice(0, 8);
+        const today = getISTDateStr();
+        const time = getISTTimeStr();
         await db.query('INSERT INTO wallet_history (status, date, time, amount, updated_amount, remark, phone_number) VALUES ("1", ?, ?, ?, ?, "Referral Commission", ?)', [today, time, amount, amount, referrer_phone]);
       }
     }
@@ -1387,8 +1401,8 @@ exports.handleAutoDeposit = async (req, res) => {
       await db.query('UPDATE user_auto_deposite SET status = ? WHERE id = ?', [response, id]);
       await db.query('UPDATE user_info SET wallet = wallet + ? WHERE phone = ?', [depAmt, username]);
       await deductAdminCoins(depAmt);
-      const today = new Date().toISOString().slice(0, 10);
-      const time = new Date().toTimeString().slice(0, 8);
+      const today = getISTDateStr();
+      const time = getISTTimeStr();
       await db.query('INSERT INTO wallet_history (status, date, time, amount, updated_amount, remark, phone_number) VALUES ("1", ?, ?, ?, ?, "Auto Deposit Approved", ?)', [today, time, depAmt, depAmt, username]);
     } else {
       await db.query('UPDATE user_auto_deposite SET status = ? WHERE id = ?', [response, id]);
@@ -1944,8 +1958,8 @@ exports.addFundToUserWallet = async (req, res) => {
 
     await db.query('UPDATE user_info SET wallet = ? WHERE phone = ?', [newWallet, phone]);
 
-    const dateStr = new Date().toISOString().slice(0, 10);
-    const timeStr = new Date().toTimeString().slice(0, 8);
+    const dateStr = getISTDateStr();
+    const timeStr = getISTTimeStr();
     const receivedAmount = `+${addedAmount}`;
     const remark = 'Points Added By Admin ';
 
@@ -2004,8 +2018,8 @@ exports.executeBidRevert = async (req, res) => {
       return res.json({ success: '0', msg: 'No bids found to revert for this game and date' });
     }
 
-    const today = new Date().toISOString().split('T')[0];
-    const time = new Date().toLocaleTimeString('en-US', { hour12: true });
+    const today = getISTDateStr();
+    const time = getISTTime12h();
 
     // Refund points to each user & generate user-side wallet history
     for (const b of bids) {
@@ -2265,7 +2279,12 @@ exports.getUserFullDetails = async (req, res) => {
     if (!userId || userId === 'null' || userId === 'undefined' || userId === 'first') {
       [users] = await db.query('SELECT * FROM user_info ORDER BY id DESC LIMIT 1');
     } else {
-      [users] = await db.query('SELECT * FROM user_info WHERE id = ? OR phone = ?', [userId, userId]);
+      const cleanPhone = String(userId).replace(/\D/g, '');
+      const phone10 = cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone;
+      [users] = await db.query(
+        'SELECT * FROM user_info WHERE id = ? OR phone = ? OR RIGHT(phone, 10) = ? LIMIT 1',
+        [userId, userId, phone10]
+      );
     }
 
     if (users.length === 0) {
@@ -2399,8 +2418,8 @@ exports.adjustUserWallet = async (req, res) => {
 
     await db.query('UPDATE user_info SET wallet = ? WHERE phone = ?', [newWallet, userPhone]);
 
-    const dateStr = new Date().toISOString().slice(0, 10);
-    const timeStr = new Date().toTimeString().slice(0, 8);
+    const dateStr = getISTDateStr();
+    const timeStr = getISTTimeStr();
     const finalRemark = remark && remark.trim() !== '' ? remark.trim() : defaultRemark;
 
     await db.query(
@@ -2465,8 +2484,8 @@ exports.processReferralCommission = async (userPhone, triggerType, triggerAmount
 
     await db.query('UPDATE user_info SET wallet = wallet + ? WHERE phone = ?', [commissionAmt, referrerPhone]);
     const [[refU]] = await db.query('SELECT wallet FROM user_info WHERE phone = ?', [referrerPhone]);
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const timeStr = new Date().toTimeString().slice(0, 8);
+    const todayStr = getISTDateStr();
+    const timeStr = getISTTimeStr();
     const remarkStr = `Referral Commission (${rType}) from ${userPhone}`;
 
     await db.query(
